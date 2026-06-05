@@ -11,6 +11,7 @@ with :class:`LLMClient` powering generation and :class:`Store` persisting
 artifacts and results across runs.
 """
 
+from mutagen.core.interfaces.checkpoint_store import CheckpointStore
 from mutagen.core.interfaces.llm import LLMClient, LLMResponse
 from mutagen.core.interfaces.mutation_gate import MutationGate
 from mutagen.core.interfaces.repo_ingestor import RepoIngestor
@@ -30,4 +31,5 @@ __all__ = [
     "LLMResponse",
     "Reporter",
     "Store",
+    "CheckpointStore",
 ]

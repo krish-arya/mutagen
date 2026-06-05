@@ -6,6 +6,7 @@ tests generated for them, and the results of validating those tests against
 mutants. Every model exposes a ``validate()`` method enforcing its invariants.
 """
 
+from mutagen.core.models.checkpoint import RunCheckpoint, TargetCheckpoint
 from mutagen.core.models.cost import CostInfo
 from mutagen.core.models.generated_test import GeneratedTest
 from mutagen.core.models.generation import GenerationInputs
@@ -37,6 +38,8 @@ __all__ = [
     "TargetOutcome",
     "OutcomeStatus",
     "CostInfo",
+    "RunCheckpoint",
+    "TargetCheckpoint",
     "SandboxResult",
     "RunnerStatus",
     "SourceLocation",

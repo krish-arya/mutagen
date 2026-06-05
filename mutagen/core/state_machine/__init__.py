@@ -1,10 +1,20 @@
-"""Run state machine.
+"""State machines.
 
-Models the lifecycle of a mutation-testing run as an explicit finite state
-machine, making illegal transitions impossible to perform silently.
+Two explicit finite state machines make illegal transitions impossible to
+perform silently: :class:`RunStateMachine` models the *run* lifecycle
+(ingest → select → generate → gate → report), and :class:`TargetStateMachine`
+models a single *target*'s lifecycle (selected → generated → ran → mutated →
+kept/discarded).
 """
 
-from mutagen.core.state_machine.states import RunState
 from mutagen.core.state_machine.machine import RunStateMachine
+from mutagen.core.state_machine.states import RunState
+from mutagen.core.state_machine.target_machine import TargetStateMachine
+from mutagen.core.state_machine.target_states import TargetState
 
-__all__ = ["RunState", "RunStateMachine"]
+__all__ = [
+    "RunState",
+    "RunStateMachine",
+    "TargetState",
+    "TargetStateMachine",
+]

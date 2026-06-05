@@ -223,6 +223,36 @@ class IngestConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class OrchestratorConfig:
+    """Orchestration budget, cost, and loop limits.
+
+    Bounds how much work a run may do. When any limit is reached the
+    orchestrator stops scheduling further targets, finalizes a partial result,
+    and leaves the run resumable.
+
+    Attributes:
+        max_targets: Cap on the number of targets processed in a run; ``0``
+            means unlimited.
+        max_wallclock_seconds: Wall-clock budget for the whole run; ``0`` means
+            unlimited.
+        max_cost_usd: Cost ceiling in USD across all LLM calls; ``0`` means
+            unlimited.
+        max_tokens: Token ceiling across all LLM calls; ``0`` means unlimited.
+        max_repair_attempts: Maximum repair iterations per target when its
+            generated tests fail to run.
+        max_strengthen_attempts: Maximum strengthening iterations per target
+            when mutants survive.
+    """
+
+    max_targets: int = 0
+    max_wallclock_seconds: float = 0.0
+    max_cost_usd: float = 0.0
+    max_tokens: int = 0
+    max_repair_attempts: int = 2
+    max_strengthen_attempts: int = 2
+
+
+@dataclass(frozen=True, slots=True)
 class StorageConfig:
     """Artifact-storage and run-repository configuration."""
 
@@ -247,6 +277,7 @@ class RunConfig:
         ingest: Repository-ingestion configuration.
         selection: Target-selection configuration.
         mutation: Mutation-gate (mutmut) configuration.
+        orchestrator: Orchestration budget/cost/loop limits.
         storage: Storage configuration.
     """
 
@@ -262,4 +293,7 @@ class RunConfig:
     ingest: IngestConfig = field(default_factory=IngestConfig)
     selection: SelectionConfig = field(default_factory=SelectionConfig)
     mutation: MutationConfig = field(default_factory=MutationConfig)
+    orchestrator: OrchestratorConfig = field(
+        default_factory=OrchestratorConfig
+    )
     storage: StorageConfig = field(default_factory=StorageConfig)
