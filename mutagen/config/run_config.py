@@ -101,11 +101,31 @@ class CoverageConfig:
 
 @dataclass(frozen=True, slots=True)
 class SandboxConfig:
-    """Sandbox-isolation configuration."""
+    """Sandbox-isolation configuration.
+
+    Attributes:
+        strategy: How isolation is provisioned (e.g. ``"copy"``).
+        max_parallel: Maximum concurrent sandbox evaluations.
+        test_timeout_seconds: Wall-clock timeout for a single test execution.
+        cpu_time_limit_seconds: Per-process CPU-time rlimit (``RLIMIT_CPU``).
+            Enforced on POSIX via ``setrlimit``; a no-op on platforms without
+            it (e.g. Windows), where the wall-clock timeout still applies.
+            ``0`` disables the CPU limit.
+        memory_limit_mb: Per-process address-space rlimit (``RLIMIT_AS``) in
+            mebibytes, enforced the same way. ``0`` disables the memory limit.
+        detect_flakiness: Whether to run the suite twice and flag tests whose
+            verdict differs between runs.
+        max_output_chars: Cap on captured stdout/stderr length retained in the
+            result.
+    """
 
     strategy: str = "copy"
     max_parallel: int = 4
     test_timeout_seconds: float = 30.0
+    cpu_time_limit_seconds: int = 60
+    memory_limit_mb: int = 1024
+    detect_flakiness: bool = True
+    max_output_chars: int = 20_000
 
 
 @dataclass(frozen=True, slots=True)

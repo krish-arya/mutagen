@@ -29,6 +29,10 @@ class SandboxResult:
         status: Overall execution status.
         passed_test_ids: Ids of generated tests that passed.
         failed_test_ids: Ids of generated tests that failed or errored.
+        flaky_test_ids: Ids of tests whose verdict differed across repeated
+            runs (non-deterministic). A non-empty set drives the overall
+            status to :attr:`RunnerStatus.ERROR`, since a flaky suite cannot
+            reliably gate mutants.
         duration_seconds: Wall-clock execution time.
         exit_code: Raw exit code from the underlying runner.
         output: Captured stdout/stderr, truncated by the adapter as needed.
@@ -37,6 +41,7 @@ class SandboxResult:
     status: RunnerStatus
     passed_test_ids: tuple[str, ...] = field(default_factory=tuple)
     failed_test_ids: tuple[str, ...] = field(default_factory=tuple)
+    flaky_test_ids: tuple[str, ...] = field(default_factory=tuple)
     duration_seconds: float = 0.0
     exit_code: int = 0
     output: str = ""
@@ -45,6 +50,11 @@ class SandboxResult:
     def passed(self) -> bool:
         """Whether the execution completed with all tests passing."""
         return self.status is RunnerStatus.PASSED
+
+    @property
+    def is_flaky(self) -> bool:
+        """Whether any test produced a non-deterministic verdict."""
+        return bool(self.flaky_test_ids)
 
     def validate(self) -> None:
         """Validate the result's invariants.
