@@ -76,9 +76,7 @@ def test_configure_logging_is_idempotent() -> None:
 
 def test_configure_logging_writes_file(tmp_path: Path) -> None:
     log_file = tmp_path / "logs" / "mutagen.log"
-    configure_logging(
-        LoggingConfig(format=LogFormat.JSON, file=log_file)
-    )
+    configure_logging(LoggingConfig(format=LogFormat.JSON, file=log_file))
     get_logger("mutagen.filetest").info("written", extra={"context": {"k": 1}})
     logging.getLogger("mutagen").handlers[-1].flush()
     assert log_file.exists()

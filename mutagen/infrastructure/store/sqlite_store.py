@@ -303,9 +303,7 @@ class SqliteCheckpointStore(CheckpointStore):
             started_at=run_rows[0]["started_at"],
         )
 
-    async def save_target(
-        self, run_id: str, checkpoint: TargetCheckpoint
-    ) -> None:
+    async def save_target(self, run_id: str, checkpoint: TargetCheckpoint) -> None:
         outcome = (
             json.dumps(_outcome_to_dict(checkpoint.outcome))
             if checkpoint.outcome is not None

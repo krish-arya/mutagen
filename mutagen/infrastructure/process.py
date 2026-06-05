@@ -18,7 +18,6 @@ project's process-safety rules in one place:
 from __future__ import annotations
 
 import asyncio
-import os
 import shutil
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
@@ -155,7 +154,9 @@ class CommandRunner:
             raise CommandError("Refusing to run an empty command.")
 
         argv = tuple(str(a) for a in args)
-        timeout = timeout_seconds if timeout_seconds is not None else self._default_timeout
+        timeout = (
+            timeout_seconds if timeout_seconds is not None else self._default_timeout
+        )
         attempts = (retries if retries is not None else self._max_retries) + 1
 
         last_error: CommandError | None = None
@@ -169,9 +170,7 @@ class CommandRunner:
                 "timeout_seconds": timeout,
             }
             try:
-                result = await self._run_once(
-                    argv, cwd=cwd, env=env, timeout=timeout
-                )
+                result = await self._run_once(argv, cwd=cwd, env=env, timeout=timeout)
             except CommandError as exc:
                 last_error = exc
                 _logger.warning(
@@ -186,16 +185,13 @@ class CommandRunner:
                             "context": {
                                 **log_context,
                                 "returncode": result.returncode,
-                                "duration_seconds": round(
-                                    result.duration_seconds, 3
-                                ),
+                                "duration_seconds": round(result.duration_seconds, 3),
                             }
                         },
                     )
                     return result
                 last_error = CommandError(
-                    f"Command {argv[0]!r} exited with status "
-                    f"{result.returncode}.",
+                    f"Command {argv[0]!r} exited with status {result.returncode}.",
                     result=result,
                 )
                 _logger.warning(
@@ -235,15 +231,13 @@ class CommandRunner:
                 stderr=asyncio.subprocess.PIPE,
             )
         except (OSError, ValueError) as exc:
-            raise CommandError(
-                f"Failed to launch {argv[0]!r}: {exc}"
-            ) from exc
+            raise CommandError(f"Failed to launch {argv[0]!r}: {exc}") from exc
 
         try:
             stdout_bytes, stderr_bytes = await asyncio.wait_for(
                 process.communicate(), timeout=timeout
             )
-        except asyncio.TimeoutError as exc:
+        except TimeoutError as exc:
             await self._terminate(process)
             raise CommandError(
                 f"Command {argv[0]!r} timed out after {timeout:.0f}s."
@@ -269,7 +263,7 @@ class CommandRunner:
             return
         try:
             await asyncio.wait_for(process.wait(), timeout=10.0)
-        except asyncio.TimeoutError:  # pragma: no cover - stubborn child
+        except TimeoutError:  # pragma: no cover - stubborn child
             _logger.error(
                 "subprocess did not exit after kill",
                 extra={"context": {"pid": process.pid}},

@@ -26,9 +26,7 @@ class CheckpointStore(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def save_target(
-        self, run_id: str, checkpoint: TargetCheckpoint
-    ) -> None:
+    async def save_target(self, run_id: str, checkpoint: TargetCheckpoint) -> None:
         """Persist a single target's checkpoint immediately.
 
         Called the moment a target reaches a terminal state, so an interrupted

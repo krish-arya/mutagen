@@ -143,9 +143,7 @@ class AnthropicLLMClient(LLMClient):
                 last_error = exc
                 if not self._is_retryable(exc) or attempt == attempts:
                     raise self._normalize_error(exc) from exc
-                delay = self._config.retry_backoff_seconds * (
-                    2 ** (attempt - 1)
-                )
+                delay = self._config.retry_backoff_seconds * (2 ** (attempt - 1))
                 _logger.warning(
                     "llm request failed; retrying",
                     extra={
@@ -246,10 +244,6 @@ class AnthropicLLMClient(LLMClient):
         return TokenUsage(
             input_tokens=getattr(usage, "input_tokens", 0) or 0,
             output_tokens=getattr(usage, "output_tokens", 0) or 0,
-            cache_read_tokens=getattr(usage, "cache_read_input_tokens", 0)
-            or 0,
-            cache_write_tokens=getattr(
-                usage, "cache_creation_input_tokens", 0
-            )
-            or 0,
+            cache_read_tokens=getattr(usage, "cache_read_input_tokens", 0) or 0,
+            cache_write_tokens=getattr(usage, "cache_creation_input_tokens", 0) or 0,
         )

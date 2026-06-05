@@ -25,7 +25,7 @@ from __future__ import annotations
 import asyncio
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -92,9 +92,7 @@ class SubprocessSandboxRunner(SandboxRunner):
             with tempfile.TemporaryDirectory(prefix="mutagen-sandbox-") as tmp:
                 tmp_dir = Path(tmp)
                 id_by_filename = self._materialize(tmp_dir, tests)
-                runs = await self._run_suite(
-                    tmp_dir, context, id_by_filename, timeout
-                )
+                runs = await self._run_suite(tmp_dir, context, id_by_filename, timeout)
         except SandboxError:
             raise
         except OSError as exc:
@@ -107,9 +105,7 @@ class SubprocessSandboxRunner(SandboxRunner):
     # ------------------------------------------------------------------ #
 
     @staticmethod
-    def _materialize(
-        tmp_dir: Path, tests: Sequence[GeneratedTest]
-    ) -> dict[str, str]:
+    def _materialize(tmp_dir: Path, tests: Sequence[GeneratedTest]) -> dict[str, str]:
         """Write each test to a uniquely-named file; return filename -> id map.
 
         The filename encodes the generated-test id so the report parser can
@@ -134,14 +130,10 @@ class SubprocessSandboxRunner(SandboxRunner):
         timeout: float,
     ) -> list[_RawRun]:
         """Run the suite once, or twice when flakiness detection is enabled."""
-        first = await self._invoke_pytest(
-            tmp_dir, context, id_by_filename, timeout
-        )
+        first = await self._invoke_pytest(tmp_dir, context, id_by_filename, timeout)
         if not self.config.detect_flakiness or first.timed_out:
             return [first]
-        second = await self._invoke_pytest(
-            tmp_dir, context, id_by_filename, timeout
-        )
+        second = await self._invoke_pytest(tmp_dir, context, id_by_filename, timeout)
         return [first, second]
 
     # ------------------------------------------------------------------ #
@@ -180,7 +172,7 @@ class SubprocessSandboxRunner(SandboxRunner):
             stdout_b, stderr_b = await asyncio.wait_for(
                 process.communicate(), timeout=timeout
             )
-        except asyncio.TimeoutError:
+        except TimeoutError:
             timed_out = True
             await self._terminate(process)
             stdout_b, stderr_b = b"", b""
@@ -236,7 +228,7 @@ class SubprocessSandboxRunner(SandboxRunner):
         env["PYTHONUNBUFFERED"] = "1"
         return env
 
-    def _limit_resources(self):  # type: ignore[no-untyped-def]
+    def _limit_resources(self) -> Callable[[], None] | None:
         """Return a ``preexec_fn`` applying rlimits, or ``None`` if unsupported.
 
         On POSIX, returns a callable that sets ``RLIMIT_CPU`` and ``RLIMIT_AS``
@@ -257,9 +249,7 @@ class SubprocessSandboxRunner(SandboxRunner):
             if cpu > 0:
                 _resource.setrlimit(_resource.RLIMIT_CPU, (cpu, cpu))
             if mem_bytes > 0:
-                _resource.setrlimit(
-                    _resource.RLIMIT_AS, (mem_bytes, mem_bytes)
-                )
+                _resource.setrlimit(_resource.RLIMIT_AS, (mem_bytes, mem_bytes))
 
         return _apply
 
@@ -274,7 +264,7 @@ class SubprocessSandboxRunner(SandboxRunner):
             return
         try:
             await asyncio.wait_for(process.wait(), timeout=10.0)
-        except asyncio.TimeoutError:  # pragma: no cover - stubborn child
+        except TimeoutError:  # pragma: no cover - stubborn child
             _logger.error("pytest did not exit after kill")
 
     def _read_report(
@@ -363,9 +353,7 @@ class SubprocessSandboxRunner(SandboxRunner):
         chunks: list[str] = []
         for i, run in enumerate(runs, start=1):
             label = f"--- run {i} ---" if len(runs) > 1 else ""
-            chunks.append(
-                "\n".join(p for p in (label, run.stdout, run.stderr) if p)
-            )
+            chunks.append("\n".join(p for p in (label, run.stdout, run.stderr) if p))
         combined = "\n".join(chunks).strip()
         limit = self.config.max_output_chars
         if len(combined) > limit:

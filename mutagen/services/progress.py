@@ -44,5 +44,4 @@ class ProgressEvent:
 class ProgressListener(Protocol):
     """Receives :class:`ProgressEvent`s as a run proceeds."""
 
-    def __call__(self, event: ProgressEvent) -> None:
-        ...
+    def __call__(self, event: ProgressEvent) -> None: ...

@@ -69,6 +69,27 @@ line-length = 88
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "ANN", "D"]
+ignore = [
+    # Deliberate design choices, not defects:
+    "UP042",  # `str, Enum` is used intentionally over `StrEnum` for clarity.
+    "ANN401", # `Any` is correct where data is genuinely dynamic (JSON parsing).
+    "D105",   # Dunder methods (__str__, __enter__, …) are self-documenting.
+    "D107",   # __init__ is documented via its class docstring.
+]
 
 [tool.ruff.lint.pydocstyle]
 convention = "google"
+
+[tool.ruff.lint.per-file-ignores]
+# Tests are self-describing by name; docstrings and full annotations on every
+# test function/fixture/mock add noise without value.
+"mutagen/tests/**" = ["D", "ANN", "B017"]
+# Adapter methods implement abstract ports whose contracts are already
+# documented on the ABC; re-documenting every override is redundant. D102 is
+# still enforced on the port declarations themselves.
+"mutagen/infrastructure/**" = ["D102"]
+"mutagen/reporting/**" = ["D102"]
+# Overrides of documented stdlib/Protocol methods (logging.Formatter.format,
+# ProgressListener.__call__) likewise inherit their contract.
+"mutagen/config/logging.py" = ["D102"]
+"mutagen/services/progress.py" = ["D102"]

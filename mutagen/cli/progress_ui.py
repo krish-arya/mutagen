@@ -40,7 +40,7 @@ class ProgressUI:
             return True
         return sys.stdout.isatty()
 
-    def __enter__(self) -> "ProgressUI":
+    def __enter__(self) -> ProgressUI:
         if self._use_rich:
             from rich.progress import (
                 BarColumn,
@@ -94,8 +94,6 @@ class ProgressUI:
     @staticmethod
     def _handle_plain(event: ProgressEvent) -> None:
         suffix = (
-            f" ({event.completed}/{event.total})"
-            if event.total is not None
-            else ""
+            f" ({event.completed}/{event.total})" if event.total is not None else ""
         )
         print(f"[{event.phase.value}] {event.message}{suffix}", flush=True)

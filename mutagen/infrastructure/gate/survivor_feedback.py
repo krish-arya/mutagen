@@ -23,9 +23,7 @@ class SurvivorFeedbackBuilder:
     def __init__(self, config: MutationConfig) -> None:
         self._config = config
 
-    def build(
-        self, survivors: Sequence[MutationResult], *, score: float
-    ) -> str:
+    def build(self, survivors: Sequence[MutationResult], *, score: float) -> str:
         """Render survivors into a feedback string.
 
         Args:

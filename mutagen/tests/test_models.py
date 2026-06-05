@@ -43,9 +43,7 @@ def test_repo_context_rejects_relative_root() -> None:
 
 def test_repo_context_rejects_absolute_source_file() -> None:
     with pytest.raises(ValidationError):
-        RepoContext(
-            root=Path.cwd(), source_files=(Path.cwd() / "a.py",)
-        ).validate()
+        RepoContext(root=Path.cwd(), source_files=(Path.cwd() / "a.py",)).validate()
 
 
 def test_target_rejects_priority_out_of_range(span: SourceSpan) -> None:

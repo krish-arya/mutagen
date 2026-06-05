@@ -9,7 +9,8 @@ adapters, keeping every other layer dependent on abstractions alone.
 
 from __future__ import annotations
 
-from pathlib import Path
+from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 from mutagen.config.run_config import RunConfig
 from mutagen.core.interfaces import (
@@ -28,6 +29,9 @@ from mutagen.services.reporting_service import ReportingService
 from mutagen.services.selection_service import SelectionService
 from mutagen.services.target_processor import TargetProcessor
 
+if TYPE_CHECKING:
+    from mutagen.infrastructure.store.sqlite_store import _Database
+
 
 class Container:
     """Resolves and caches the application's dependency graph.
@@ -41,7 +45,7 @@ class Container:
         self.config = config
         self._cache: dict[str, object] = {}
 
-    def _memo(self, key: str, factory):  # type: ignore[no-untyped-def]
+    def _memo(self, key: str, factory: Callable[[], object]) -> object:
         """Return a cached singleton, building it via ``factory`` on first use."""
         if key not in self._cache:
             self._cache[key] = factory()
@@ -55,25 +59,19 @@ class Container:
         """Resolve the configured :class:`LLMClient`."""
         from mutagen.infrastructure.llm import AnthropicLLMClient
 
-        return self._memo(
-            "llm", lambda: AnthropicLLMClient(self.config.llm)
-        )  # type: ignore[return-value]
+        return self._memo("llm", lambda: AnthropicLLMClient(self.config.llm))  # type: ignore[return-value]
 
     def provide_ingestor(self) -> RepoIngestor:
         """Resolve the configured :class:`RepoIngestor`."""
         from mutagen.infrastructure.ingest import FilesystemRepoIngestor
 
-        return self._memo(
-            "ingestor", lambda: FilesystemRepoIngestor(self.config)
-        )  # type: ignore[return-value]
+        return self._memo("ingestor", lambda: FilesystemRepoIngestor(self.config))  # type: ignore[return-value]
 
     def provide_selector(self) -> TargetSelector:
         """Resolve the configured :class:`TargetSelector`."""
         from mutagen.infrastructure.selection import AstTargetSelector
 
-        return self._memo(
-            "selector", lambda: AstTargetSelector(self.config)
-        )  # type: ignore[return-value]
+        return self._memo("selector", lambda: AstTargetSelector(self.config))  # type: ignore[return-value]
 
     def provide_generator(self) -> TestGenerator:
         """Resolve the configured :class:`TestGenerator`."""
@@ -98,9 +96,7 @@ class Container:
         """Resolve the configured :class:`MutationGate`."""
         from mutagen.infrastructure.gate import MutmutMutationGate
 
-        return self._memo(
-            "gate", lambda: MutmutMutationGate(config=self.config)
-        )  # type: ignore[return-value]
+        return self._memo("gate", lambda: MutmutMutationGate(config=self.config))  # type: ignore[return-value]
 
     def provide_reporter(self) -> Reporter:
         """Resolve a composite :class:`Reporter` writing md + json + terminal."""
@@ -123,7 +119,7 @@ class Container:
 
         return self._memo("reporter", build)  # type: ignore[return-value]
 
-    def _database(self):  # type: ignore[no-untyped-def]
+    def _database(self) -> _Database:
         """Open (once) the shared SQLite database."""
         from mutagen.infrastructure.store import open_database
 
@@ -136,9 +132,7 @@ class Container:
         """Resolve the configured :class:`Store` (SQLite-backed)."""
         from mutagen.infrastructure.store import SqliteStore
 
-        return self._memo(
-            "store", lambda: SqliteStore(self._database())
-        )  # type: ignore[return-value]
+        return self._memo("store", lambda: SqliteStore(self._database()))  # type: ignore[return-value]
 
     def provide_checkpoint_store(self) -> CheckpointStore:
         """Resolve the configured :class:`CheckpointStore` (SQLite-backed)."""

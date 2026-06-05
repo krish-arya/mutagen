@@ -32,6 +32,6 @@ class CompositeReporter(Reporter):
         return ", ".join(locations)
 
     @classmethod
-    def of(cls, reporters: Sequence[Reporter]) -> "CompositeReporter":
+    def of(cls, reporters: Sequence[Reporter]) -> CompositeReporter:
         """Build a composite from a sequence of reporters."""
         return cls(reporters=tuple(reporters))

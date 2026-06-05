@@ -75,9 +75,7 @@ class CoverageAnalyzer:
             When ``None`` a default runner is constructed.
     """
 
-    def __init__(
-        self, config: RunConfig, runner: CommandRunner | None = None
-    ) -> None:
+    def __init__(self, config: RunConfig, runner: CommandRunner | None = None) -> None:
         self._config = config
         self._runner = runner or CommandRunner(
             default_timeout_seconds=config.ingest.command_timeout_seconds
@@ -148,9 +146,7 @@ class CoverageAnalyzer:
                 f"Failed to export coverage JSON report: {exc}"
             ) from exc
 
-    def parse_report_file(
-        self, report_path: Path, root: Path
-    ) -> ProjectCoverage:
+    def parse_report_file(self, report_path: Path, root: Path) -> ProjectCoverage:
         """Parse a ``coverage.py`` JSON report file into coverage data.
 
         Args:
@@ -189,9 +185,7 @@ class CoverageAnalyzer:
         except json.JSONDecodeError as exc:
             raise CoverageError(f"Invalid coverage JSON: {exc}") from exc
         if not isinstance(document, dict) or "files" not in document:
-            raise CoverageError(
-                "Coverage JSON missing required 'files' section."
-            )
+            raise CoverageError("Coverage JSON missing required 'files' section.")
 
         files: dict[Path, FileCoverage] = {}
         for filename, data in document["files"].items():

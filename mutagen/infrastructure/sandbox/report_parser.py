@@ -55,26 +55,20 @@ class RunReport:
     def passed_ids(self) -> frozenset[str]:
         """Ids whose aggregated verdict is a success."""
         return frozenset(
-            tid
-            for tid, v in self.verdict_by_test_id.items()
-            if v.is_success
+            tid for tid, v in self.verdict_by_test_id.items() if v.is_success
         )
 
     def failed_ids(self) -> frozenset[str]:
         """Ids whose aggregated verdict is a failure or error."""
         return frozenset(
-            tid
-            for tid, v in self.verdict_by_test_id.items()
-            if not v.is_success
+            tid for tid, v in self.verdict_by_test_id.items() if not v.is_success
         )
 
 
 class ReportParser:
     """Parses ``pytest-json-report`` documents into :class:`RunReport`."""
 
-    def parse(
-        self, raw: str, id_by_filename: dict[str, str]
-    ) -> RunReport:
+    def parse(self, raw: str, id_by_filename: dict[str, str]) -> RunReport:
         """Parse a JSON report, mapping nodeids back to generated-test ids.
 
         Args:
@@ -121,9 +115,7 @@ class ReportParser:
         )
 
     @staticmethod
-    def _match_id(
-        nodeid: str, id_by_filename: dict[str, str]
-    ) -> str | None:
+    def _match_id(nodeid: str, id_by_filename: dict[str, str]) -> str | None:
         """Resolve a pytest nodeid to a generated-test id by its filename."""
         # nodeid looks like "test_generated_abcd.py::test_fn"; the part before
         # "::" is a path whose basename is the file we wrote.
@@ -154,9 +146,7 @@ class ReportParser:
         return TestVerdict.FAILED
 
     @staticmethod
-    def _worse(
-        current: TestVerdict | None, candidate: TestVerdict
-    ) -> TestVerdict:
+    def _worse(current: TestVerdict | None, candidate: TestVerdict) -> TestVerdict:
         """Return the more severe of two verdicts (ERROR > FAILED > others)."""
         if current is None:
             return candidate
@@ -174,10 +164,7 @@ class ReportParser:
         # pytest-json-report records collectors; a failed collector means the
         # test module could not be imported.
         for collector in document.get("collectors", []):
-            if (
-                isinstance(collector, dict)
-                and collector.get("outcome") == "failed"
-            ):
+            if isinstance(collector, dict) and collector.get("outcome") == "failed":
                 return True
         summary = document.get("summary", {})
         if isinstance(summary, dict) and summary.get("error"):

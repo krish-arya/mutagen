@@ -28,7 +28,6 @@ from mutagen.infrastructure.generation import (
     TestValidator,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Fakes & fixtures
 # --------------------------------------------------------------------------- #
@@ -113,18 +112,14 @@ def _target() -> Target:
 
 
 def test_gather_extracts_target_source(repo: RepoContext, tmp_path: Path) -> None:
-    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(
-        _target(), repo
-    )
+    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(_target(), repo)
     assert "return x + 1" in gathered.source
     assert gathered.qualified_name == "pkg.mod.fn"
     assert gathered.module_path == "pkg.mod"
 
 
 def test_gather_extracts_imports(repo: RepoContext, tmp_path: Path) -> None:
-    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(
-        _target(), repo
-    )
+    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(_target(), repo)
     assert "import os" in gathered.imports
     assert "from typing import Any" in gathered.imports
 
@@ -132,21 +127,15 @@ def test_gather_extracts_imports(repo: RepoContext, tmp_path: Path) -> None:
 def test_gather_surrounding_includes_sibling_signatures(
     repo: RepoContext, tmp_path: Path
 ) -> None:
-    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(
-        _target(), repo
-    )
+    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(_target(), repo)
     # Sibling function signature and module constant, but not the target body.
     assert "def helper(a):" in gathered.surrounding
     assert "CONST = 42" in gathered.surrounding
     assert "return x + 1" not in gathered.surrounding
 
 
-def test_gather_collects_test_examples(
-    repo: RepoContext, tmp_path: Path
-) -> None:
-    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(
-        _target(), repo
-    )
+def test_gather_collects_test_examples(repo: RepoContext, tmp_path: Path) -> None:
+    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(_target(), repo)
     assert any("test_demo" in ex for ex in gathered.style_examples)
 
 
@@ -162,9 +151,7 @@ def test_gather_handles_unreadable_source(tmp_path: Path) -> None:
         kind=TargetKind.FUNCTION,
         span=SourceSpan(path=Path("missing.py"), start_line=1, end_line=1),
     )
-    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(
-        target, repo
-    )
+    gathered = ContextGatherer(RunConfig(project_root=tmp_path)).gather(target, repo)
     assert gathered.source == ""
     assert gathered.imports == ()
 
@@ -261,9 +248,7 @@ async def _generate(
     return await gen.generate(_target(), repo, inputs)
 
 
-async def test_generate_produces_valid_test(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_generate_produces_valid_test(repo: RepoContext, tmp_path: Path) -> None:
     tests = await _generate(repo, tmp_path, FakeLLM())
     assert len(tests) == 1
     test = tests[0]
@@ -276,9 +261,7 @@ async def test_generate_produces_valid_test(
     test.validate()  # structural invariants hold
 
 
-async def test_generate_strips_code_fence(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_generate_strips_code_fence(repo: RepoContext, tmp_path: Path) -> None:
     fenced = (
         "```python\n"
         "from pkg.mod import fn\n\n"
@@ -290,9 +273,7 @@ async def test_generate_strips_code_fence(
     assert "```" not in tests[0].source
 
 
-async def test_generate_marks_invalid_test(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_generate_marks_invalid_test(repo: RepoContext, tmp_path: Path) -> None:
     # Syntactically broken output — returned but flagged invalid.
     tests = await _generate(repo, tmp_path, FakeLLM("def test_x(:\n  pass"))
     assert len(tests) == 1

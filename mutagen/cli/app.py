@@ -19,7 +19,7 @@ from mutagen.config.container import Container
 from mutagen.config.loader import load_config
 from mutagen.config.logging import configure_logging, get_logger
 from mutagen.core.exceptions import MutagenError
-from mutagen.core.models.run import RunResult, RunStatus
+from mutagen.core.models.run import RunResult
 
 _logger = get_logger(__name__)
 
@@ -34,7 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
-        "-c", "--config", metavar="PATH",
+        "-c",
+        "--config",
+        metavar="PATH",
         help="Path to a Mutagen TOML configuration file.",
     )
 
@@ -46,15 +48,19 @@ def build_parser() -> argparse.ArgumentParser:
         help="Repository to test: a local path or a git URL.",
     )
     run.add_argument(
-        "--threshold", type=float, default=None,
+        "--threshold",
+        type=float,
+        default=None,
         help="Override the minimum acceptable mutation score (0-1).",
     )
     run.add_argument(
-        "--run-id", default=None,
+        "--run-id",
+        default=None,
         help="Run identifier; reuse to resume an interrupted run.",
     )
     run.add_argument(
-        "--no-progress", action="store_true",
+        "--no-progress",
+        action="store_true",
         help="Disable the live progress UI (force plain output).",
     )
 
@@ -62,7 +68,8 @@ def build_parser() -> argparse.ArgumentParser:
         "report", help="Re-render the most recent run's report."
     )
     report.add_argument(
-        "--run-id", default=None,
+        "--run-id",
+        default=None,
         help="Run id to report; defaults to the most recent.",
     )
 

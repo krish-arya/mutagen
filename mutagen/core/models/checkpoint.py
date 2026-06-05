@@ -51,13 +51,9 @@ class TargetCheckpoint:
         if not self.target_id.strip():
             raise ValidationError("TargetCheckpoint.target_id must be non-empty.")
         if self.attempts < 0:
-            raise ValidationError(
-                "TargetCheckpoint.attempts must be non-negative."
-            )
+            raise ValidationError("TargetCheckpoint.attempts must be non-negative.")
         if self.state.is_terminal and self.outcome is None:
-            raise ValidationError(
-                "A terminal TargetCheckpoint must carry an outcome."
-            )
+            raise ValidationError("A terminal TargetCheckpoint must carry an outcome.")
         if self.outcome is not None:
             self.outcome.validate()
 
@@ -87,9 +83,7 @@ class RunCheckpoint:
     def completed_outcomes(self) -> tuple[TargetOutcome, ...]:
         """Outcomes of all targets that reached a terminal state."""
         return tuple(
-            cp.outcome
-            for cp in self.targets.values()
-            if cp.outcome is not None
+            cp.outcome for cp in self.targets.values() if cp.outcome is not None
         )
 
     def validate(self) -> None:

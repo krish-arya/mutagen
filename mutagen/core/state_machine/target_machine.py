@@ -65,8 +65,7 @@ class TargetStateMachine:
         """
         if not self.can_transition(target):
             raise StateTransitionError(
-                f"Illegal target transition: {self._state.value} -> "
-                f"{target.value}"
+                f"Illegal target transition: {self._state.value} -> {target.value}"
             )
         self._state = target
         return self._state

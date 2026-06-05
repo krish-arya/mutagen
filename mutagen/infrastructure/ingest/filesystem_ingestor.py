@@ -26,7 +26,11 @@ from mutagen.config.run_config import IngestConfig, RunConfig
 from mutagen.core.exceptions import IngestionError
 from mutagen.core.interfaces import RepoIngestor
 from mutagen.core.models.repo import RepoContext
-from mutagen.infrastructure.process import CommandError, CommandRunner, resolve_executable
+from mutagen.infrastructure.process import (
+    CommandError,
+    CommandRunner,
+    resolve_executable,
+)
 
 _logger = get_logger(__name__)
 
@@ -83,9 +87,7 @@ class BuildSystem:
     @property
     def is_installable(self) -> bool:
         """Whether any recognized dependency source was found."""
-        return (
-            self.has_pyproject or self.has_requirements or self.has_setup_py
-        )
+        return self.has_pyproject or self.has_requirements or self.has_setup_py
 
 
 @dataclass(frozen=True, slots=True)
@@ -156,8 +158,13 @@ class FilesystemRepoIngestor(RepoIngestor):
         workspace = self._create_workspace()
         _logger.info(
             "ingest started",
-            extra={"context": {"source": str(source), "kind": kind.value,
-                               "workspace": str(workspace)}},
+            extra={
+                "context": {
+                    "source": str(source),
+                    "kind": kind.value,
+                    "workspace": str(workspace),
+                }
+            },
         )
 
         try:
@@ -199,10 +206,14 @@ class FilesystemRepoIngestor(RepoIngestor):
             context.validate()
             _logger.info(
                 "ingest completed",
-                extra={"context": {"root": str(repo_root),
-                                   "source_files": len(context.source_files),
-                                   "test_files": len(context.test_files),
-                                   "commit": commit_sha}},
+                extra={
+                    "context": {
+                        "root": str(repo_root),
+                        "source_files": len(context.source_files),
+                        "test_files": len(context.test_files),
+                        "commit": commit_sha,
+                    }
+                },
             )
             return context
         except IngestionError:
@@ -332,8 +343,12 @@ class FilesystemRepoIngestor(RepoIngestor):
         has_setup_py = (repo_root / "setup.py").is_file()
 
         requirements: list[Path] = []
-        for candidate in ("requirements.txt", "requirements-dev.txt",
-                          "requirements/dev.txt", "requirements/base.txt"):
+        for candidate in (
+            "requirements.txt",
+            "requirements-dev.txt",
+            "requirements/dev.txt",
+            "requirements/base.txt",
+        ):
             if (repo_root / candidate).is_file():
                 requirements.append(Path(candidate))
 
@@ -398,9 +413,7 @@ class FilesystemRepoIngestor(RepoIngestor):
         return sorted(seen)
 
     @classmethod
-    def _find_test_dirs(
-        cls, repo_root: Path, test_files: list[Path]
-    ) -> set[Path]:
+    def _find_test_dirs(cls, repo_root: Path, test_files: list[Path]) -> set[Path]:
         """Infer test directories from named dirs and test-file locations."""
         dirs: set[Path] = set()
         for name in _TEST_DIR_NAMES:

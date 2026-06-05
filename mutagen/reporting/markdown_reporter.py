@@ -53,7 +53,9 @@ class MarkdownReporter(Reporter):
 
     @staticmethod
     def _header(report: RunReport) -> str:
-        return f"# Mutagen Report — `{report.run_id}`\n\nStatus: **{report.status.value}**"
+        return (
+            f"# Mutagen Report — `{report.run_id}`\n\nStatus: **{report.status.value}**"
+        )
 
     @staticmethod
     def _summary(report: RunReport) -> str:
@@ -85,9 +87,7 @@ class MarkdownReporter(Reporter):
         )
         after = f"{report.mutation_score_after:.0%}"
         delta = (
-            f"{report.score_delta:+.0%}"
-            if report.score_delta is not None
-            else "n/a"
+            f"{report.score_delta:+.0%}" if report.score_delta is not None else "n/a"
         )
         return "\n".join(
             [

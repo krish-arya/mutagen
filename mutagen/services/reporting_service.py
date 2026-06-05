@@ -13,7 +13,6 @@ from dataclasses import dataclass
 
 from mutagen.config.run_config import RunConfig
 from mutagen.core.interfaces import Reporter
-from mutagen.core.models.cost import CostInfo
 from mutagen.core.models.outcome import OutcomeStatus, TargetOutcome
 from mutagen.core.models.run import RunReport, RunResult, RunStatus, TargetStat
 
@@ -38,9 +37,7 @@ class ReportingService:
         covered = sum(1 for o in result.outcomes if self._is_covered(o))
         kept = covered  # a kept target is one that reached COVERED status
         discarded = len(result.outcomes) - kept
-        tests_generated = sum(
-            len(o.generated_test_ids) for o in result.outcomes
-        )
+        tests_generated = sum(len(o.generated_test_ids) for o in result.outcomes)
 
         report = RunReport(
             run_id=result.run_id,
@@ -91,11 +88,7 @@ class ReportingService:
     @staticmethod
     def _overall_score(result: RunResult) -> float:
         """Mean post-generation mutation score across scored targets."""
-        scored = [
-            o.mutation_score
-            for o in result.outcomes
-            if o.mutation_results
-        ]
+        scored = [o.mutation_score for o in result.outcomes if o.mutation_results]
         if not scored:
             return 0.0
         return sum(scored) / len(scored)

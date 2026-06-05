@@ -22,9 +22,11 @@ _LOGGER_NAMESPACE = "mutagen"
 
 # Attributes present on a vanilla LogRecord; anything else a caller attached via
 # ``extra=`` is treated as a structured field by the JSON formatter.
-_RESERVED_RECORD_KEYS = frozenset(
-    logging.makeLogRecord({}).__dict__.keys()
-) | {"message", "asctime", "taskName"}
+_RESERVED_RECORD_KEYS = frozenset(logging.makeLogRecord({}).__dict__.keys()) | {
+    "message",
+    "asctime",
+    "taskName",
+}
 
 
 class StructuredFormatter(logging.Formatter):

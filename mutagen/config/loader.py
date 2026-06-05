@@ -32,7 +32,6 @@ import tomllib
 from pathlib import Path
 from typing import Any
 
-from mutagen.core.exceptions import ConfigurationError
 from mutagen.config.run_config import (
     Effort,
     LLMConfig,
@@ -45,6 +44,7 @@ from mutagen.config.run_config import (
     SandboxConfig,
     StorageConfig,
 )
+from mutagen.core.exceptions import ConfigurationError
 
 
 def load_config(
@@ -72,9 +72,7 @@ def load_config(
     try:
         return _build(merged)
     except (KeyError, ValueError, TypeError) as exc:
-        raise ConfigurationError(
-            f"Invalid configuration: {exc}"
-        ) from exc
+        raise ConfigurationError(f"Invalid configuration: {exc}") from exc
 
 
 def _read_file(path: Path) -> dict[str, Any]:
@@ -95,10 +93,7 @@ def _apply_overrides(
     merged = dict(data)
     if "project_root" in overrides and overrides["project_root"] is not None:
         merged["project_root"] = overrides["project_root"]
-    if (
-        "score_threshold" in overrides
-        and overrides["score_threshold"] is not None
-    ):
+    if "score_threshold" in overrides and overrides["score_threshold"] is not None:
         merged["score_threshold"] = overrides["score_threshold"]
     if "log_level" in overrides and overrides["log_level"] is not None:
         logging = dict(merged.get("logging", {}))
@@ -145,9 +140,7 @@ def _llm(table: dict[str, Any]) -> LLMConfig:
         api_key_env=str(table.get("api_key_env", base.api_key_env)),
         max_tokens=int(table.get("max_tokens", base.max_tokens)),
         effort=Effort(str(table.get("effort", base.effort.value)).lower()),
-        adaptive_thinking=bool(
-            table.get("adaptive_thinking", base.adaptive_thinking)
-        ),
+        adaptive_thinking=bool(table.get("adaptive_thinking", base.adaptive_thinking)),
         timeout_seconds=float(table.get("timeout_seconds", base.timeout_seconds)),
         max_retries=int(table.get("max_retries", base.max_retries)),
         input_usd_per_mtok=float(
@@ -171,9 +164,7 @@ def _sandbox(table: dict[str, Any]) -> SandboxConfig:
             table.get("cpu_time_limit_seconds", base.cpu_time_limit_seconds)
         ),
         memory_limit_mb=int(table.get("memory_limit_mb", base.memory_limit_mb)),
-        detect_flakiness=bool(
-            table.get("detect_flakiness", base.detect_flakiness)
-        ),
+        detect_flakiness=bool(table.get("detect_flakiness", base.detect_flakiness)),
     )
 
 
@@ -200,6 +191,9 @@ def _orchestrator(table: dict[str, Any]) -> OrchestratorConfig:
         ),
         max_strengthen_attempts=int(
             table.get("max_strengthen_attempts", base.max_strengthen_attempts)
+        ),
+        max_parallel_targets=int(
+            table.get("max_parallel_targets", base.max_parallel_targets)
         ),
     )
 

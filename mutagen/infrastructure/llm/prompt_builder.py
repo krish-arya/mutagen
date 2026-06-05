@@ -150,9 +150,7 @@ class PromptBuilder:
         if request.imports:
             joined = "\n".join(request.imports)
             parts.append(f"Imports available in the module:\n```python\n{joined}\n```")
-        parts.append(
-            f"Source under test:\n```python\n{request.source}\n```"
-        )
+        parts.append(f"Source under test:\n```python\n{request.source}\n```")
         if request.surrounding:
             parts.append(
                 "Surrounding context (signatures/constants the target may "

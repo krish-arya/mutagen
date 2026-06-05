@@ -13,13 +13,11 @@ from __future__ import annotations
 
 import importlib.util
 import sys
-import tempfile
 from pathlib import Path
 
 import pytest
 
 from mutagen.config.run_config import SandboxConfig
-from mutagen.core.exceptions import SandboxError
 from mutagen.core.models.generated_test import GeneratedTest
 from mutagen.core.models.repo import RepoContext
 from mutagen.core.models.test_run import RunnerStatus
@@ -173,9 +171,7 @@ async def test_stable_test_not_flagged_flaky(
     assert result.flaky_test_ids == ()
 
 
-async def test_flakiness_disabled_runs_once(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_flakiness_disabled_runs_once(repo: RepoContext, tmp_path: Path) -> None:
     runner = SubprocessSandboxRunner(SandboxConfig(detect_flakiness=False))
     marker = tmp_path / "marker.txt"
     source = (
@@ -212,9 +208,7 @@ async def test_output_is_captured(
         [
             _test(
                 "printer",
-                "def test_it():\n"
-                "    print('SENTINEL_OUTPUT_123')\n"
-                "    assert False\n",
+                "def test_it():\n    print('SENTINEL_OUTPUT_123')\n    assert False\n",
             )
         ],
     )

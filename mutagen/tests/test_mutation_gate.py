@@ -28,7 +28,6 @@ from mutagen.infrastructure.gate import (
 )
 from mutagen.infrastructure.process import CommandError, CommandResult
 
-
 # --------------------------------------------------------------------------- #
 # Fakes & fixtures
 # --------------------------------------------------------------------------- #
@@ -73,9 +72,7 @@ class FakeRunner:
 def _json(*pairs: tuple[str, str]) -> str:
     import json
 
-    return json.dumps(
-        {"mutants": [{"id": i, "status": s} for i, s in pairs]}
-    )
+    return json.dumps({"mutants": [{"id": i, "status": s} for i, s in pairs]})
 
 
 def _config(tmp_path: Path, **mutation_kwargs: object) -> RunConfig:
@@ -212,21 +209,15 @@ def test_feedback_describes_survivors() -> None:
         MutationResult("m1", MutationVerdict.SURVIVED, detail="x + 1 -> x - 1"),
         MutationResult("m2", MutationVerdict.SURVIVED),
     ]
-    feedback = SurvivorFeedbackBuilder(MutationConfig()).build(
-        survivors, score=0.5
-    )
+    feedback = SurvivorFeedbackBuilder(MutationConfig()).build(survivors, score=0.5)
     assert "m1" in feedback
     assert "x + 1 -> x - 1" in feedback
     assert "50%" in feedback
 
 
 def test_feedback_caps_survivor_count() -> None:
-    survivors = [
-        MutationResult(f"m{i}", MutationVerdict.SURVIVED) for i in range(20)
-    ]
-    builder = SurvivorFeedbackBuilder(
-        MutationConfig(max_survivors_in_feedback=3)
-    )
+    survivors = [MutationResult(f"m{i}", MutationVerdict.SURVIVED) for i in range(20)]
+    builder = SurvivorFeedbackBuilder(MutationConfig(max_survivors_in_feedback=3))
     feedback = builder.build(survivors, score=0.1)
     assert "and 17 more" in feedback
 
@@ -258,9 +249,7 @@ async def test_gate_rejects_when_score_below_threshold(
     assert len(report.survivors) == 1
 
 
-async def test_gate_keeps_at_exact_threshold(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_gate_keeps_at_exact_threshold(repo: RepoContext, tmp_path: Path) -> None:
     # 1 killed of 2 scored = 0.5; threshold 0.5 => kept (>=).
     runner = FakeRunner(_json(("m1", "killed"), ("m2", "survived")))
     report = await _evaluate(repo, tmp_path, runner, score_threshold=0.5)
@@ -282,17 +271,13 @@ async def test_gate_scopes_mutation_to_target_file(
     )
 
 
-async def test_gate_passes_mutant_cap(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_gate_passes_mutant_cap(repo: RepoContext, tmp_path: Path) -> None:
     runner = FakeRunner(_json(("m1", "killed")))
     await _evaluate(repo, tmp_path, runner, max_mutants=7)
     assert any("--max-children" in argv for argv in runner.calls)
 
 
-async def test_gate_caps_parsed_results(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_gate_caps_parsed_results(repo: RepoContext, tmp_path: Path) -> None:
     # mutmut returns more mutants than the cap; the report is truncated.
     pairs = tuple((f"m{i}", "killed") for i in range(10))
     runner = FakeRunner(_json(*pairs))
@@ -300,9 +285,7 @@ async def test_gate_caps_parsed_results(
     assert report.total == 3
 
 
-async def test_gate_isolates_in_copy(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_gate_isolates_in_copy(repo: RepoContext, tmp_path: Path) -> None:
     original = (tmp_path / "pkg" / "mod.py").read_text(encoding="utf-8")
     runner = FakeRunner(_json(("m1", "killed")))
     await _evaluate(repo, tmp_path, runner)
@@ -310,36 +293,28 @@ async def test_gate_isolates_in_copy(
     assert (tmp_path / "pkg" / "mod.py").read_text(encoding="utf-8") == original
 
 
-async def test_gate_empty_tests_rejected(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_gate_empty_tests_rejected(repo: RepoContext, tmp_path: Path) -> None:
     gate = MutmutMutationGate(config=_config(tmp_path), runner=FakeRunner())
     report = await gate.evaluate(_target(), [], repo)
     assert not report.kept
     assert report.total == 0
 
 
-async def test_gate_no_mutants_rejected(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_gate_no_mutants_rejected(repo: RepoContext, tmp_path: Path) -> None:
     runner = FakeRunner("")  # mutmut produced nothing
     report = await _evaluate(repo, tmp_path, runner, score_threshold=0.8)
     assert not report.kept
     assert report.total == 0
 
 
-async def test_gate_run_failure_raises(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_gate_run_failure_raises(repo: RepoContext, tmp_path: Path) -> None:
     runner = FakeRunner(run_error=CommandError("mutmut timed out"))
     gate = MutmutMutationGate(config=_config(tmp_path), runner=runner)
     with pytest.raises(MutationGateError):
         await gate.evaluate(_target(), [_test()], repo)
 
 
-async def test_gate_missing_target_file_raises(
-    tmp_path: Path
-) -> None:
+async def test_gate_missing_target_file_raises(tmp_path: Path) -> None:
     # Repo without the target's source file present.
     (tmp_path / "pkg").mkdir()
     (tmp_path / "pkg" / "other.py").write_text("x = 1\n", encoding="utf-8")

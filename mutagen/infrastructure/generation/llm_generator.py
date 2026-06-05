@@ -28,7 +28,7 @@ from pathlib import Path
 from mutagen.config.logging import get_logger
 from mutagen.config.run_config import RunConfig
 from mutagen.core.exceptions import LLMError, TestGenerationError
-from mutagen.core.interfaces import LLMClient, TestGenerator
+from mutagen.core.interfaces import LLMClient, LLMResponse, TestGenerator
 from mutagen.core.models.generated_test import GeneratedTest
 from mutagen.core.models.generation import GenerationInputs
 from mutagen.core.models.repo import RepoContext
@@ -40,6 +40,7 @@ from mutagen.infrastructure.generation.context_gatherer import (
 from mutagen.infrastructure.generation.validator import TestValidator
 from mutagen.infrastructure.llm.prompt_builder import (
     GenerationRequest,
+    Prompt,
     PromptBuilder,
 )
 from mutagen.infrastructure.llm.response_parser import (
@@ -83,9 +84,7 @@ class LLMTestGenerator(TestGenerator):
         prompt = self._build_prompt(gathered, inputs)
 
         try:
-            response = await self.llm_client.complete(
-                prompt.user, system=prompt.system
-            )
+            response = await self.llm_client.complete(prompt.user, system=prompt.system)
         except LLMError as exc:
             raise TestGenerationError(
                 f"LLM generation failed for {target.qualified_name}: {exc}"
@@ -129,12 +128,10 @@ class LLMTestGenerator(TestGenerator):
 
     def _build_prompt(
         self, gathered: GatheredContext, inputs: GenerationInputs
-    ):  # type: ignore[no-untyped-def]
+    ) -> Prompt:
         # Caller-supplied examples take precedence; fall back to gathered ones.
         examples = (
-            inputs.style_examples
-            if inputs.has_examples
-            else gathered.style_examples
+            inputs.style_examples if inputs.has_examples else gathered.style_examples
         )
         request = GenerationRequest(
             qualified_name=gathered.qualified_name,
@@ -153,7 +150,7 @@ class LLMTestGenerator(TestGenerator):
         context: RepoContext,
         gathered: GatheredContext,
         source: str,
-        response,  # type: ignore[no-untyped-def]
+        response: LLMResponse,
     ) -> GeneratedTest:
         """Validate the source and build the final :class:`GeneratedTest`."""
         symbol = gathered.qualified_name.rsplit(".", 1)[-1]
@@ -187,9 +184,7 @@ class LLMTestGenerator(TestGenerator):
     @staticmethod
     def _test_id(target: Target, source: str) -> str:
         """Stable id from the target and the generated source content."""
-        digest = hashlib.sha1(
-            f"{target.target_id}:{source}".encode()
-        ).hexdigest()
+        digest = hashlib.sha1(f"{target.target_id}:{source}".encode()).hexdigest()
         return digest[:16]
 
     # ------------------------------------------------------------------ #

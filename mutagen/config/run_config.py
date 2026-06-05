@@ -242,6 +242,11 @@ class OrchestratorConfig:
             generated tests fail to run.
         max_strengthen_attempts: Maximum strengthening iterations per target
             when mutants survive.
+        max_parallel_targets: Maximum number of targets processed concurrently.
+            ``1`` is sequential; higher values overlap independent targets
+            (each isolated in its own sandbox/mutation workspace). Because the
+            dominant cost is CPU-bound (pytest + mutmut), the practical sweet
+            spot is roughly the host's core count.
     """
 
     max_targets: int = 0
@@ -250,6 +255,7 @@ class OrchestratorConfig:
     max_tokens: int = 0
     max_repair_attempts: int = 2
     max_strengthen_attempts: int = 2
+    max_parallel_targets: int = 1
 
 
 @dataclass(frozen=True, slots=True)
@@ -293,7 +299,5 @@ class RunConfig:
     ingest: IngestConfig = field(default_factory=IngestConfig)
     selection: SelectionConfig = field(default_factory=SelectionConfig)
     mutation: MutationConfig = field(default_factory=MutationConfig)
-    orchestrator: OrchestratorConfig = field(
-        default_factory=OrchestratorConfig
-    )
+    orchestrator: OrchestratorConfig = field(default_factory=OrchestratorConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)

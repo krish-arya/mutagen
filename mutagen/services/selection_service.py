@@ -6,8 +6,8 @@ filtering) on top of the raw selection.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from collections.abc import Sequence
+from dataclasses import dataclass
 
 from mutagen.config.run_config import RunConfig
 from mutagen.core.interfaces import TargetSelector

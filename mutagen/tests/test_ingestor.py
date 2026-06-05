@@ -16,7 +16,6 @@ import pytest
 from mutagen.config.run_config import IngestConfig, RunConfig
 from mutagen.core.exceptions import IngestionError
 from mutagen.infrastructure.ingest import (
-    BuildSystem,
     FilesystemRepoIngestor,
     SourceKind,
 )
@@ -56,8 +55,7 @@ class FakeRunner:
     def _match(self, argv: tuple[str, ...], table: dict) -> object | None:
         for key, value in table.items():
             if argv[: len(key)] == key or any(
-                argv[i : i + len(key)] == key
-                for i in range(len(argv) - len(key) + 1)
+                argv[i : i + len(key)] == key for i in range(len(argv) - len(key) + 1)
             ):
                 return value
         return None
@@ -148,19 +146,13 @@ def test_classify_git_sources(source: str, expected: SourceKind) -> None:
 
 
 def test_classify_existing_local_path_is_local(tmp_path: Path) -> None:
-    assert (
-        FilesystemRepoIngestor.classify_source(tmp_path) is SourceKind.LOCAL
-    )
-    assert (
-        FilesystemRepoIngestor.classify_source(str(tmp_path))
-        is SourceKind.LOCAL
-    )
+    assert FilesystemRepoIngestor.classify_source(tmp_path) is SourceKind.LOCAL
+    assert FilesystemRepoIngestor.classify_source(str(tmp_path)) is SourceKind.LOCAL
 
 
 def test_classify_nonexistent_plain_path_is_local() -> None:
     assert (
-        FilesystemRepoIngestor.classify_source("./some/local/dir")
-        is SourceKind.LOCAL
+        FilesystemRepoIngestor.classify_source("./some/local/dir") is SourceKind.LOCAL
     )
 
 
@@ -239,9 +231,7 @@ async def test_ingest_local_copies_into_isolated_workspace(
     assert (sample_repo / "pkg" / "core.py").is_file()
 
 
-async def test_ingest_builds_valid_context(
-    sample_repo: Path, tmp_path: Path
-) -> None:
+async def test_ingest_builds_valid_context(sample_repo: Path, tmp_path: Path) -> None:
     runner = FakeRunner()
     runner.on(["-m", "venv"], side_effect=_venv_side_effect)
     ingestor = _make_ingestor(tmp_path, runner)
@@ -279,9 +269,7 @@ async def test_venv_and_install_skipped_when_disabled(
     sample_repo: Path, tmp_path: Path
 ) -> None:
     runner = FakeRunner()
-    ingestor = _make_ingestor(
-        tmp_path, runner, create_venv=False, install_deps=False
-    )
+    ingestor = _make_ingestor(tmp_path, runner, create_venv=False, install_deps=False)
 
     await ingestor.ingest(sample_repo)
 

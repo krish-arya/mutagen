@@ -23,6 +23,7 @@ The run-level :class:`RunStateMachine` tracks the coarse phase; the per-target
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Sequence
 from dataclasses import dataclass, field
@@ -40,7 +41,7 @@ from mutagen.core.models.outcome import TargetOutcome
 from mutagen.core.models.repo import RepoContext
 from mutagen.core.models.run import RunResult, RunStatus
 from mutagen.core.models.target import Target
-from mutagen.core.state_machine import RunState, RunStateMachine, TargetState
+from mutagen.core.state_machine import RunState, RunStateMachine
 from mutagen.services.budget import BudgetReason, BudgetTracker
 from mutagen.services.progress import (
     ProgressEvent,
@@ -93,16 +94,13 @@ class PipelineOrchestrator:
             outcomes, stopped = await self._process_queue(
                 run_id, context, targets, checkpoint
             )
-            result = self._build_result(
-                run_id, outcomes, checkpoint, started, stopped
-            )
+            result = self._build_result(run_id, outcomes, checkpoint, started, stopped)
             await self._report_and_persist(result)
             self._transition(RunState.COMPLETED)
             return result
         except MutagenError as exc:
             _logger.error(
-                "run failed", extra={"context": {"run_id": run_id,
-                                                 "error": str(exc)}}
+                "run failed", extra={"context": {"run_id": run_id, "error": str(exc)}}
             )
             self._safe_fail()
             raise
@@ -119,10 +117,14 @@ class PipelineOrchestrator:
         if existing is not None:
             _logger.info(
                 "resuming run",
-                extra={"context": {"run_id": run_id,
-                                   "done_targets": sum(
-                                       1 for c in existing.targets.values()
-                                       if c.is_done)}},
+                extra={
+                    "context": {
+                        "run_id": run_id,
+                        "done_targets": sum(
+                            1 for c in existing.targets.values() if c.is_done
+                        ),
+                    }
+                },
             )
             return existing
         checkpoint = RunCheckpoint(run_id=run_id, started_at=started)
@@ -136,9 +138,7 @@ class PipelineOrchestrator:
     async def _ingest(self, source: str) -> RepoContext:
         self._transition(RunState.INITIALIZING)
         self._transition(RunState.INGESTING)
-        self._emit(
-            ProgressEvent(ProgressPhase.INGESTING, f"Ingesting {source}")
-        )
+        self._emit(ProgressEvent(ProgressPhase.INGESTING, f"Ingesting {source}"))
         return await self.ingestor.ingest(source)
 
     async def _select(self, context: RepoContext) -> Sequence[Target]:
@@ -157,64 +157,92 @@ class PipelineOrchestrator:
         targets: Sequence[Target],
         checkpoint: RunCheckpoint,
     ) -> tuple[list[TargetOutcome], BudgetReason | None]:
-        """Process targets in order, persisting each immediately.
+        """Process targets — up to ``max_parallel_targets`` at once.
 
-        Returns the outcomes (including those carried forward from a prior
-        run) and the budget reason that stopped the run early, if any.
+        Targets are independent (each runs in its own isolated sandbox and
+        mutation workspace), so they are processed by a bounded worker pool.
+        Budget/cost limits are checked atomically before each target is
+        scheduled; once a limit is hit, no new targets start but those already
+        in flight are allowed to finish, yielding a clean PARTIAL result.
+
+        Every finished target is persisted immediately, so the run remains
+        resumable regardless of concurrency.
+
+        Returns the outcomes (including those carried forward from a prior run)
+        and the budget reason that stopped the run early, if any.
         """
         self._transition(RunState.GENERATING_TESTS)
-        budget = BudgetTracker(
-            self.config.orchestrator,
-            started_at=0.0,
-        )
+        budget = BudgetTracker(self.config.orchestrator, started_at=0.0)
         budget.record_cost(checkpoint.cost)
 
         # Carry forward outcomes already completed on a prior run.
-        outcomes: list[TargetOutcome] = list(checkpoint.completed_outcomes)
-        stopped: BudgetReason | None = None
+        carried: list[TargetOutcome] = list(checkpoint.completed_outcomes)
+        pending = [t for t in targets if not checkpoint.is_target_done(t.target_id)]
+
+        limit = max(1, self.config.orchestrator.max_parallel_targets)
+        semaphore = asyncio.Semaphore(limit)
+        # Captures shared across workers; guarded by the budget lock or by the
+        # single-threaded event loop (mutated only outside ``await`` points).
+        new_outcomes: list[TargetOutcome] = []
+        stop_reason: BudgetReason | None = None
+        completed_baseline = len(carried)
         total = len(targets)
 
-        for target in targets:
-            if checkpoint.is_target_done(target.target_id):
-                continue  # resume: already processed
+        async def worker(target: Target) -> None:
+            try:
+                self._emit(
+                    ProgressEvent(
+                        ProgressPhase.PROCESSING,
+                        f"Processing {target.qualified_name}",
+                        completed=completed_baseline + len(new_outcomes),
+                        total=total,
+                    )
+                )
+                result = await self.target_processor.process(target, context)
+                await budget.record_cost_safe(result.outcome.cost)
+                new_outcomes.append(result.outcome)
+                await self._persist_target(run_id, result)
+                self._emit(
+                    ProgressEvent(
+                        ProgressPhase.PROCESSING,
+                        f"{result.final_state.value}: {target.qualified_name}",
+                        completed=completed_baseline + len(new_outcomes),
+                        total=total,
+                    )
+                )
+            finally:
+                semaphore.release()
 
-            stopped = budget.exhausted()
-            if stopped is not None:
+        tasks: list[asyncio.Task[None]] = []
+        for target in pending:
+            # Bound the number of concurrently-running workers.
+            await semaphore.acquire()
+            # Atomically check the budget and reserve a target slot. If the
+            # budget is spent, stop scheduling (release the slot we took).
+            reason = await budget.try_reserve()
+            if reason is not None:
+                semaphore.release()
+                stop_reason = reason
                 _logger.info(
                     "budget reached; stopping",
-                    extra={"context": {"reason": stopped.value,
-                                       "processed": budget.processed}},
+                    extra={
+                        "context": {
+                            "reason": reason.value,
+                            "processed": budget.processed,
+                        }
+                    },
                 )
                 break
+            tasks.append(asyncio.create_task(worker(target)))
 
-            self._emit(
-                ProgressEvent(
-                    ProgressPhase.PROCESSING,
-                    f"Processing {target.qualified_name}",
-                    completed=len(outcomes),
-                    total=total,
-                )
-            )
-            result = await self.target_processor.process(target, context)
-            budget.record_target()
-            budget.record_cost(result.outcome.cost)
-            outcomes.append(result.outcome)
-            await self._persist_target(run_id, result)
-            self._emit(
-                ProgressEvent(
-                    ProgressPhase.PROCESSING,
-                    f"{result.final_state.value}: {target.qualified_name}",
-                    completed=len(outcomes),
-                    total=total,
-                )
-            )
+        # Let every scheduled worker finish (in-flight work always completes).
+        if tasks:
+            await asyncio.gather(*tasks)
 
         self._transition(RunState.GATING)
-        return outcomes, stopped
+        return carried + new_outcomes, stop_reason
 
-    async def _persist_target(
-        self, run_id: str, result: ProcessResult
-    ) -> None:
+    async def _persist_target(self, run_id: str, result: ProcessResult) -> None:
         """Persist a finished target's checkpoint immediately."""
         checkpoint = TargetCheckpoint(
             target_id=result.outcome.target_id,
@@ -263,9 +291,7 @@ class PipelineOrchestrator:
         report = self.reporting_service.summarize(result)
         await self.reporter.report(report)
         await self.store.save_run(result)
-        self._emit(
-            ProgressEvent(ProgressPhase.DONE, f"Run {result.status.value}")
-        )
+        self._emit(ProgressEvent(ProgressPhase.DONE, f"Run {result.status.value}"))
 
     # ------------------------------------------------------------------ #
     # State-machine helpers

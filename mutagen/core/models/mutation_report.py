@@ -55,9 +55,7 @@ class MutationReport:
     @property
     def survivors(self) -> tuple[MutationResult, ...]:
         """Results for mutants that escaped detection."""
-        return tuple(
-            r for r in self.results if r.verdict is MutationVerdict.SURVIVED
-        )
+        return tuple(r for r in self.results if r.verdict is MutationVerdict.SURVIVED)
 
     @property
     def mutation_score(self) -> float:
@@ -90,8 +88,7 @@ class MutationReport:
             raise ValidationError("MutationReport.target_id must be non-empty.")
         if not 0.0 <= self.threshold <= 1.0:
             raise ValidationError(
-                f"MutationReport.threshold must be in [0, 1], got "
-                f"{self.threshold}."
+                f"MutationReport.threshold must be in [0, 1], got {self.threshold}."
             )
         for result in self.results:
             result.validate()

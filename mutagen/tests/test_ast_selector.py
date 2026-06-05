@@ -47,7 +47,9 @@ def _write(path: Path, content: str) -> None:
 
 def _config(tmp_path: Path, **kwargs: object) -> RunConfig:
     selection = SelectionConfig(
-        trivial_max_statements=1, giant_max_statements=50, **kwargs  # type: ignore[arg-type]
+        trivial_max_statements=1,
+        giant_max_statements=50,
+        **kwargs,  # type: ignore[arg-type]
     )
     return RunConfig(project_root=tmp_path, selection=selection)
 
@@ -67,10 +69,7 @@ def repo(tmp_path: Path) -> RepoContext:
     )
     _write(
         tmp_path / "pkg" / "util.py",
-        "def helper(a, b):\n"
-        "    c = a + b\n"
-        "    d = c * 2\n"
-        "    return d\n",
+        "def helper(a, b):\n    c = a + b\n    d = c * 2\n    return d\n",
     )
     return RepoContext(
         root=tmp_path,
@@ -91,9 +90,7 @@ async def test_select_returns_ordered_validated_targets(
             )
         }
     )
-    selector = AstTargetSelector(
-        _config(tmp_path), analyzer=_StubAnalyzer(coverage)
-    )
+    selector = AstTargetSelector(_config(tmp_path), analyzer=_StubAnalyzer(coverage))
 
     targets = await selector.select(repo)
 
@@ -128,17 +125,13 @@ async def test_select_without_coverage_treats_all_uncovered(
 async def test_select_degrades_on_coverage_failure(
     repo: RepoContext, tmp_path: Path
 ) -> None:
-    selector = AstTargetSelector(
-        _config(tmp_path), analyzer=_StubAnalyzer(error=True)
-    )
+    selector = AstTargetSelector(_config(tmp_path), analyzer=_StubAnalyzer(error=True))
     targets = await selector.select(repo)
     # Coverage failure must not abort selection.
     assert len(targets) == 2
 
 
-async def test_select_respects_max_targets(
-    repo: RepoContext, tmp_path: Path
-) -> None:
+async def test_select_respects_max_targets(repo: RepoContext, tmp_path: Path) -> None:
     selector = AstTargetSelector(
         _config(tmp_path, max_targets=1), analyzer=_StubAnalyzer()
     )

@@ -37,9 +37,7 @@ def test_parses_failed() -> None:
 
 
 def test_skipped_counts_as_success() -> None:
-    raw = _doc(
-        [{"nodeid": "test_mutagen_aaa.py::test_x", "outcome": "skipped"}]
-    )
+    raw = _doc([{"nodeid": "test_mutagen_aaa.py::test_x", "outcome": "skipped"}])
     report = ReportParser().parse(raw, _ids())
     assert report.passed_ids() == frozenset({"aaa"})
 
@@ -101,8 +99,6 @@ def test_non_dict_document_flags_error() -> None:
 
 def test_windows_style_nodeid_path() -> None:
     # nodeids may use backslashes on Windows; the basename must still match.
-    raw = _doc(
-        [{"nodeid": "sub\\test_mutagen_aaa.py::test_x", "outcome": "passed"}]
-    )
+    raw = _doc([{"nodeid": "sub\\test_mutagen_aaa.py::test_x", "outcome": "passed"}])
     report = ReportParser().parse(raw, _ids())
     assert report.passed_ids() == frozenset({"aaa"})

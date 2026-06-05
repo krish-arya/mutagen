@@ -87,9 +87,7 @@ class FunctionExtractor:
         try:
             tree = ast.parse(source, filename=filename)
         except SyntaxError as exc:
-            raise ExtractionError(
-                f"Failed to parse {filename}: {exc}"
-            ) from exc
+            raise ExtractionError(f"Failed to parse {filename}: {exc}") from exc
 
         functions: list[ExtractedFunction] = []
         self._visit_body(tree.body, prefix="", out=functions)
@@ -135,9 +133,7 @@ class FunctionExtractor:
                 )
             elif isinstance(node, ast.ClassDef):
                 qualified = f"{prefix}{node.name}." if prefix else f"{node.name}."
-                self._visit_body(
-                    node.body, prefix=qualified, out=out, in_class=True
-                )
+                self._visit_body(node.body, prefix=qualified, out=out, in_class=True)
 
     def _build(
         self,
@@ -155,9 +151,7 @@ class FunctionExtractor:
             end_line=self._end_line(node),
             body_lines=frozenset(body_lines),
             statement_count=self._statement_count(node),
-            decorators=tuple(
-                self._decorator_name(d) for d in node.decorator_list
-            ),
+            decorators=tuple(self._decorator_name(d) for d in node.decorator_list),
             is_async=isinstance(node, ast.AsyncFunctionDef),
         )
 
@@ -173,9 +167,7 @@ class FunctionExtractor:
         )
 
     @classmethod
-    def _body_lines(
-        cls, node: ast.FunctionDef | ast.AsyncFunctionDef
-    ) -> set[int]:
+    def _body_lines(cls, node: ast.FunctionDef | ast.AsyncFunctionDef) -> set[int]:
         """Return executable body line numbers, skipping a leading docstring."""
         body = list(node.body)
         if body and cls._is_docstring(body[0]):
@@ -189,9 +181,7 @@ class FunctionExtractor:
         return lines
 
     @classmethod
-    def _statement_count(
-        cls, node: ast.FunctionDef | ast.AsyncFunctionDef
-    ) -> int:
+    def _statement_count(cls, node: ast.FunctionDef | ast.AsyncFunctionDef) -> int:
         """Count statements in the body, excluding a leading docstring."""
         body = list(node.body)
         if body and cls._is_docstring(body[0]):

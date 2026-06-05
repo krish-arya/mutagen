@@ -50,9 +50,7 @@ class RunResult:
     @property
     def covered_targets(self) -> int:
         """Number of targets that reached COVERED status."""
-        return sum(
-            1 for o in self.outcomes if o.status is OutcomeStatus.COVERED
-        )
+        return sum(1 for o in self.outcomes if o.status is OutcomeStatus.COVERED)
 
     def validate(self) -> None:
         """Validate the run result and all nested outcomes.
@@ -64,13 +62,9 @@ class RunResult:
         if not self.run_id.strip():
             raise ValidationError("RunResult.run_id must be non-empty.")
         if self.finished_at and self.finished_at < self.started_at:
-            raise ValidationError(
-                "RunResult.finished_at precedes started_at."
-            )
+            raise ValidationError("RunResult.finished_at precedes started_at.")
         if self.duration_seconds < 0:
-            raise ValidationError(
-                "RunResult.duration_seconds must be non-negative."
-            )
+            raise ValidationError("RunResult.duration_seconds must be non-negative.")
         self.cost.validate()
         for outcome in self.outcomes:
             outcome.validate()
@@ -191,7 +185,5 @@ class RunReport:
                     f"RunReport.{name} must be in [0.0, 1.0], got {score}."
                 )
         if self.duration_seconds < 0:
-            raise ValidationError(
-                "RunReport.duration_seconds must be non-negative."
-            )
+            raise ValidationError("RunReport.duration_seconds must be non-negative.")
         self.cost.validate()

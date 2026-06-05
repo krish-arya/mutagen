@@ -6,9 +6,9 @@ root, enabling caching, resumption, and historical comparison.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
-from collections.abc import Sequence
 
 from mutagen.config.run_config import StorageConfig
 from mutagen.core.interfaces import Store

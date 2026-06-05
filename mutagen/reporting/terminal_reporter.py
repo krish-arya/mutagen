@@ -58,8 +58,14 @@ class TerminalReporter(Reporter):
             else "n/a"
         )
         return [
-            ("Mutation score (before -> after)", f"{before} -> {report.mutation_score_after:.0%}"),
-            ("Targets kept / discarded", f"{report.kept_targets} / {report.discarded_targets}"),
+            (
+                "Mutation score (before -> after)",
+                f"{before} -> {report.mutation_score_after:.0%}",
+            ),
+            (
+                "Targets kept / discarded",
+                f"{report.kept_targets} / {report.discarded_targets}",
+            ),
             ("Tests generated", str(report.total_tests_generated)),
             ("API cost", f"${report.cost.usd:.4f}"),
             ("Execution time", f"{report.duration_seconds:.1f}s"),

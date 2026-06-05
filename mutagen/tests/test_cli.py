@@ -27,9 +27,7 @@ def _result(score_status: OutcomeStatus = OutcomeStatus.COVERED) -> RunResult:
     return RunResult(
         run_id="r1",
         status=RunStatus.SUCCEEDED,
-        outcomes=(
-            TargetOutcome("t0", score_status, generated_test_ids=("g0",)),
-        ),
+        outcomes=(TargetOutcome("t0", score_status, generated_test_ids=("g0",)),),
         duration_seconds=1.0,
     )
 
@@ -80,8 +78,13 @@ async def test_run_passes_run_id_for_resume(tmp_path: Path) -> None:
     Container.provide_orchestrator = lambda self: fake  # type: ignore[assignment]
     await run_cli(
         [
-            "-c", str(_config_file(tmp_path)),
-            "run", "./repo", "--run-id", "myrun", "--no-progress",
+            "-c",
+            str(_config_file(tmp_path)),
+            "run",
+            "./repo",
+            "--run-id",
+            "myrun",
+            "--no-progress",
         ]
     )
     assert fake.executed_with == ("./repo", "myrun")
@@ -93,8 +96,11 @@ async def test_run_below_threshold_returns_two(tmp_path: Path) -> None:
     Container.provide_orchestrator = lambda self: fake  # type: ignore[assignment]
     code = await run_cli(
         [
-            "-c", str(_config_file(tmp_path, threshold=0.9)),
-            "run", "./repo", "--no-progress",
+            "-c",
+            str(_config_file(tmp_path, threshold=0.9)),
+            "run",
+            "./repo",
+            "--no-progress",
         ]
     )
     assert code == 2

@@ -63,9 +63,7 @@ class TargetProcessor:
     sandbox_runner: SandboxRunner
     gate: MutationGate
 
-    async def process(
-        self, target: Target, context: RepoContext
-    ) -> ProcessResult:
+    async def process(self, target: Target, context: RepoContext) -> ProcessResult:
         """Drive ``target`` through its lifecycle and return the result.
 
         The state machine advances SELECTED -> GENERATED -> RAN -> MUTATED ->
@@ -83,7 +81,10 @@ class TargetProcessor:
             cost = cost.combine(gen_cost)
             if tests is None:
                 return self._discard(
-                    target, machine, cost, attempts,
+                    target,
+                    machine,
+                    cost,
+                    attempts,
                     OutcomeStatus.GENERATION_FAILED,
                     "Could not generate runnable tests.",
                 )
@@ -98,12 +99,15 @@ class TargetProcessor:
         except MutagenError as exc:
             _logger.warning(
                 "target processing failed",
-                extra={"context": {"target": target.qualified_name,
-                                   "error": str(exc)}},
+                extra={"context": {"target": target.qualified_name, "error": str(exc)}},
             )
             return self._discard(
-                target, machine, cost, attempts,
-                OutcomeStatus.GENERATION_FAILED, str(exc),
+                target,
+                machine,
+                cost,
+                attempts,
+                OutcomeStatus.GENERATION_FAILED,
+                str(exc),
             )
 
     # ------------------------------------------------------------------ #
@@ -128,9 +132,7 @@ class TargetProcessor:
 
         for _ in range(max_repairs + 1):
             inputs = GenerationInputs(feedback=feedback) if feedback else None
-            tests = tuple(
-                await self.generator.generate(target, context, inputs)
-            )
+            tests = tuple(await self.generator.generate(target, context, inputs))
             attempts += 1
             cost = cost.combine(self._tests_cost(tests))
             # Advance to GENERATED once, the first time we have any output.
@@ -179,9 +181,7 @@ class TargetProcessor:
             if report.kept or not report.survivor_feedback:
                 break
             inputs = GenerationInputs(feedback=report.survivor_feedback)
-            regenerated = tuple(
-                await self.generator.generate(target, context, inputs)
-            )
+            regenerated = tuple(await self.generator.generate(target, context, inputs))
             extra_attempts += 1
             cost = cost.combine(self._tests_cost(regenerated))
             runnable = tuple(t for t in regenerated if t.is_valid)
@@ -269,9 +269,7 @@ class TargetProcessor:
     @staticmethod
     def _invalid_feedback(tests: tuple[GeneratedTest, ...]) -> str:
         """Build repair feedback from statically-invalid generated tests."""
-        reasons = "; ".join(
-            t.validation_error for t in tests if t.validation_error
-        )
+        reasons = "; ".join(t.validation_error for t in tests if t.validation_error)
         return (
             "The generated tests were statically invalid. "
             f"Fix these problems: {reasons or 'unknown validation error'}."

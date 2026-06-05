@@ -42,12 +42,7 @@ def test_classifies_methods(extractor: FunctionExtractor) -> None:
 
 
 def test_nested_function_qualname(extractor: FunctionExtractor) -> None:
-    src = (
-        "def outer():\n"
-        "    def inner():\n"
-        "        return 2\n"
-        "    return inner\n"
-    )
+    src = "def outer():\n    def inner():\n        return 2\n    return inner\n"
     names = {f.qualified_name for f in extractor.extract_source(src)}
     assert "outer" in names
     assert "outer.<locals>.inner" in names
@@ -56,12 +51,7 @@ def test_nested_function_qualname(extractor: FunctionExtractor) -> None:
 def test_docstring_excluded_from_body_and_count(
     extractor: FunctionExtractor,
 ) -> None:
-    src = (
-        "def f():\n"
-        '    """Doc."""\n'
-        "    x = 1\n"
-        "    return x\n"
-    )
+    src = 'def f():\n    """Doc."""\n    x = 1\n    return x\n'
     func = extractor.extract_source(src)[0]
     # Docstring line 2 must not count as a body line.
     assert 2 not in func.body_lines
@@ -114,9 +104,7 @@ def test_dotted_and_called_decorators(extractor: FunctionExtractor) -> None:
 
 
 def test_async_function_flagged(extractor: FunctionExtractor) -> None:
-    func = extractor.extract_source(
-        "async def f():\n    return 1\n"
-    )[0]
+    func = extractor.extract_source("async def f():\n    return 1\n")[0]
     assert func.is_async
 
 

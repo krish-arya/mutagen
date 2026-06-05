@@ -79,8 +79,7 @@ class RepoContext:
                     )
         if self.python_version and not _is_version_like(self.python_version):
             raise ValidationError(
-                f"RepoContext.python_version is malformed: "
-                f"{self.python_version!r}."
+                f"RepoContext.python_version is malformed: {self.python_version!r}."
             )
 
     def resolve(self, relative: Path) -> Path:

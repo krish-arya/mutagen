@@ -1,11 +1,11 @@
-"""Abstract interfaces (ports).
+r"""Abstract interfaces (ports).
 
 These ABCs define the contracts that infrastructure adapters must satisfy. The
 core and service layers depend only on these abstractions, never on concrete
 implementations. Together they describe the test-generation pipeline:
 
     RepoIngestor -> TargetSelector -> TestGenerator -> SandboxRunner
-                                                    \\-> MutationGate -> Reporter
+                                                    \-> MutationGate -> Reporter
 
 with :class:`LLMClient` powering generation and :class:`Store` persisting
 artifacts and results across runs.

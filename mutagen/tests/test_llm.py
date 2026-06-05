@@ -32,7 +32,6 @@ from mutagen.infrastructure.llm import (
     TokenUsage,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Mock SDK objects (shaped like the Anthropic SDK response)
 # --------------------------------------------------------------------------- #
@@ -114,9 +113,7 @@ def _msg(text: str = "result", **kwargs: Any) -> FakeMessage:
 
 def test_cost_tracker_prices_input_and_output() -> None:
     tracker = CostTracker(_config())
-    cost = tracker.price(
-        TokenUsage(input_tokens=1_000_000, output_tokens=1_000_000)
-    )
+    cost = tracker.price(TokenUsage(input_tokens=1_000_000, output_tokens=1_000_000))
     assert cost.usd == pytest.approx(30.0)  # 5 + 25
     assert cost.total_tokens == 2_000_000
     assert cost.requests == 1
@@ -239,9 +236,7 @@ def test_extract_code_plain(parser: ResponseParser) -> None:
 
 def test_extract_code_strips_fence(parser: ResponseParser) -> None:
     fenced = "```python\ndef test_x():\n    assert True\n```"
-    assert parser.extract_code(_response(fenced)) == (
-        "def test_x():\n    assert True"
-    )
+    assert parser.extract_code(_response(fenced)) == ("def test_x():\n    assert True")
 
 
 def test_extract_code_refusal_raises(parser: ResponseParser) -> None:
@@ -392,9 +387,7 @@ async def test_retries_then_succeeds(
         "_is_retryable",
         staticmethod(lambda exc: isinstance(exc, _Retryable)),
     )
-    client = FakeAsyncClient(
-        behaviors=[_Retryable(), _Retryable(), _msg("recovered")]
-    )
+    client = FakeAsyncClient(behaviors=[_Retryable(), _Retryable(), _msg("recovered")])
     llm = AnthropicLLMClient(_config(max_retries=3), client=client)
 
     response = await llm.complete("hello")
@@ -452,9 +445,7 @@ async def test_backoff_grows_exponentially(
         "_is_retryable",
         staticmethod(lambda exc: isinstance(exc, _Retryable)),
     )
-    client = FakeAsyncClient(
-        behaviors=[_Retryable(), _Retryable(), _msg("ok")]
-    )
+    client = FakeAsyncClient(behaviors=[_Retryable(), _Retryable(), _msg("ok")])
     llm = AnthropicLLMClient(
         _config(max_retries=3, retry_backoff_seconds=1.0), client=client
     )

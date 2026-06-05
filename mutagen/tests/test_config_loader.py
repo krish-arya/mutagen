@@ -38,6 +38,7 @@ def test_loads_full_file(tmp_path: Path) -> None:
         "[orchestrator]\n"
         "max_targets = 25\n"
         "max_cost_usd = 5.0\n"
+        "max_parallel_targets = 6\n"
         "[storage]\n"
         'backend = "sqlite"\n'
         'root = ".data"\n',
@@ -49,6 +50,7 @@ def test_loads_full_file(tmp_path: Path) -> None:
     assert config.llm.max_tokens == 8000
     assert config.orchestrator.max_targets == 25
     assert config.orchestrator.max_cost_usd == 5.0
+    assert config.orchestrator.max_parallel_targets == 6
     assert config.storage.root == Path(".data")
 
 

@@ -139,9 +139,7 @@ def test_larger_outranks_smaller_at_equal_coverage(
 
 
 def test_priority_within_unit_interval(ranker: TargetRanker) -> None:
-    targets = ranker.rank_file(
-        Path("m.py"), [_func("a", statements=10)], None
-    )
+    targets = ranker.rank_file(Path("m.py"), [_func("a", statements=10)], None)
     assert 0.0 <= targets[0].priority <= 1.0
 
 

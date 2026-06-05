@@ -227,6 +227,7 @@ max_targets = 50
 max_cost_usd = 5.0
 max_repair_attempts = 2
 max_strengthen_attempts = 2
+max_parallel_targets = 4   # process this many targets at once (1 = sequential)
 
 [storage]
 backend = "sqlite"
@@ -236,6 +237,21 @@ root = ".mutagen"
 Hitting any budget/cost limit stops the run **cleanly** with a `PARTIAL`,
 resumable result — the in-flight target finishes and everything completed is
 already persisted.
+
+### Parallelism
+
+Targets are independent — each runs in its own isolated sandbox and mutation
+workspace — so the orchestrator processes up to `max_parallel_targets` of them
+at once via a bounded worker pool (default `1`, i.e. sequential). Budget and
+cost limits are enforced with an **atomic reservation** before each target is
+scheduled, so concurrency never overshoots `max_targets`; once a limit trips,
+no new targets start but those already in flight finish cleanly. Per-target
+checkpoints are still written immediately, so resume works identically whether
+the run was sequential or parallel.
+
+Because the dominant cost is CPU-bound (`pytest` + `mutmut`), the practical
+sweet spot for `max_parallel_targets` is roughly the host's core count — higher
+values mostly cause subprocess thrashing rather than further speedup.
 
 ---
 

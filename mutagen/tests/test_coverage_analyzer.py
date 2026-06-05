@@ -79,9 +79,7 @@ def test_parse_report_file_missing_raises(
         analyzer.parse_report_file(tmp_path / "absent.json", tmp_path)
 
 
-def test_empty_coverage_is_empty(
-    analyzer: CoverageAnalyzer, tmp_path: Path
-) -> None:
+def test_empty_coverage_is_empty(analyzer: CoverageAnalyzer, tmp_path: Path) -> None:
     cov = analyzer.parse_report(_report({}), tmp_path)
     assert cov.is_empty
 

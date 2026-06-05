@@ -84,9 +84,7 @@ class ResponseParser:
         try:
             value = json.loads(raw)
         except json.JSONDecodeError as exc:
-            raise ResponseParseError(
-                f"Response was not valid JSON: {exc}"
-            ) from exc
+            raise ResponseParseError(f"Response was not valid JSON: {exc}") from exc
         if schema is not None:
             self.validate_schema(value, schema)
         return value
@@ -128,9 +126,7 @@ class ResponseParser:
     def _guard(response: LLMResponse) -> None:
         """Raise if the response is a refusal or otherwise unusable."""
         if response.is_refusal:
-            raise ResponseParseError(
-                "Model refused the request; no output to parse."
-            )
+            raise ResponseParseError("Model refused the request; no output to parse.")
         if not response.text.strip():
             if response.is_truncated:
                 raise ResponseParseError(

@@ -4,6 +4,7 @@ Exposes the strongly-typed :class:`RunConfig` and helpers for loading it from
 files and the environment.
 """
 
+from mutagen.config.loader import load_config
 from mutagen.config.run_config import (
     CoverageConfig,
     Effort,
@@ -17,7 +18,6 @@ from mutagen.config.run_config import (
     SelectionConfig,
     StorageConfig,
 )
-from mutagen.config.loader import load_config
 
 __all__ = [
     "RunConfig",

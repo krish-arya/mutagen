@@ -95,8 +95,11 @@ async def test_list_runs_newest_first(db) -> None:  # type: ignore[no-untyped-de
 async def test_save_generated_tests(db) -> None:  # type: ignore[no-untyped-def]
     store = SqliteStore(db)
     test = GeneratedTest(
-        test_id="g0", target_id="t0", module_path="tests/t.py",
-        source="def test_x():\n    assert True\n", test_names=("test_x",),
+        test_id="g0",
+        target_id="t0",
+        module_path="tests/t.py",
+        source="def test_x():\n    assert True\n",
+        test_names=("test_x",),
     )
     await store.save_generated_tests("r1", [test])  # must not raise
 

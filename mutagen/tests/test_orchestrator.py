@@ -36,7 +36,6 @@ from mutagen.services import (
     TargetProcessor,
 )
 
-
 # --------------------------------------------------------------------------- #
 # Shared fixtures / helpers
 # --------------------------------------------------------------------------- #
@@ -307,11 +306,13 @@ async def test_resume_skips_done_targets() -> None:
         run_id="run1",
         targets={
             "t0": TargetCheckpoint(
-                "t0", TargetState.KEPT,
+                "t0",
+                TargetState.KEPT,
                 TargetOutcome("t0", OutcomeStatus.COVERED),
             ),
             "t1": TargetCheckpoint(
-                "t1", TargetState.DISCARDED,
+                "t1",
+                TargetState.DISCARDED,
                 TargetOutcome("t1", OutcomeStatus.UNCOVERED),
             ),
         },
@@ -332,7 +333,8 @@ async def test_resume_with_all_done_processes_nothing() -> None:
         run_id="run1",
         targets={
             f"t{i}": TargetCheckpoint(
-                f"t{i}", TargetState.KEPT,
+                f"t{i}",
+                TargetState.KEPT,
                 TargetOutcome(f"t{i}", OutcomeStatus.COVERED),
             )
             for i in range(3)
@@ -454,9 +456,7 @@ async def test_invalid_tests_trigger_repair() -> None:
         orchestrator=OrchestratorConfig(max_repair_attempts=2),
     )
     # First batch is statically invalid; repair yields a valid one.
-    gen = MockGenerator(
-        [[_test(valid=False, error="syntax error")], [_test()]]
-    )
+    gen = MockGenerator([[_test(valid=False, error="syntax error")], [_test()]])
     sandbox = MockSandbox([SandboxResult(status=RunnerStatus.PASSED)])
     gate = MockGate([_killed()])
     result = await _processor(config, gen, sandbox, gate).process(
@@ -464,3 +464,126 @@ async def test_invalid_tests_trigger_repair() -> None:
     )
     assert result.final_state is TargetState.KEPT
     assert any("statically invalid" in (f or "") for f in gen.feedbacks)
+
+
+# --------------------------------------------------------------------------- #
+# Bounded parallel processing
+# --------------------------------------------------------------------------- #
+
+
+class ConcurrencyProbe:
+    """Processor that records the peak number of concurrent in-flight calls."""
+
+    def __init__(self, *, delay: float = 0.02) -> None:
+        self.processed: list[str] = []
+        self.in_flight = 0
+        self.peak_in_flight = 0
+        self._delay = delay
+
+    async def process(self, target, context):  # type: ignore[no-untyped-def]
+        import asyncio
+
+        self.in_flight += 1
+        self.peak_in_flight = max(self.peak_in_flight, self.in_flight)
+        try:
+            await asyncio.sleep(self._delay)  # hold the slot so overlap shows
+        finally:
+            self.in_flight -= 1
+        self.processed.append(target.target_id)
+        return ProcessResult(
+            TargetState.KEPT,
+            TargetOutcome(target_id=target.target_id, status=OutcomeStatus.COVERED),
+            attempts=1,
+        )
+
+
+def _parallel_config(limit: int, **orch_kwargs: object) -> RunConfig:
+    return RunConfig(
+        project_root=Path.cwd(),
+        orchestrator=OrchestratorConfig(
+            max_parallel_targets=limit,
+            **orch_kwargs,  # type: ignore[arg-type]
+        ),
+    )
+
+
+async def test_parallel_overlaps_targets() -> None:
+    probe = ConcurrencyProbe()
+    orch, _, _, _ = _orchestrator(
+        n_targets=8, processor=probe, config=_parallel_config(4)
+    )
+    result = await orch.execute("local", "run1")
+    assert len(probe.processed) == 8
+    assert result.status is RunStatus.SUCCEEDED
+    assert len(result.outcomes) == 8
+    # With a limit of 4 and held slots, several run at once but never exceed it.
+    assert 1 < probe.peak_in_flight <= 4
+
+
+async def test_default_is_sequential() -> None:
+    # Default max_parallel_targets=1 => no overlap.
+    probe = ConcurrencyProbe()
+    orch, _, _, _ = _orchestrator(n_targets=5, processor=probe)
+    await orch.execute("local", "run1")
+    assert probe.peak_in_flight == 1
+
+
+async def test_parallel_never_exceeds_limit() -> None:
+    probe = ConcurrencyProbe()
+    orch, _, _, _ = _orchestrator(
+        n_targets=12, processor=probe, config=_parallel_config(3)
+    )
+    await orch.execute("local", "run1")
+    assert probe.peak_in_flight <= 3
+
+
+async def test_parallel_budget_does_not_overshoot() -> None:
+    # 4-way concurrency must still honor max_targets exactly.
+    probe = ConcurrencyProbe()
+    orch, _, _, _ = _orchestrator(
+        n_targets=10,
+        processor=probe,
+        config=_parallel_config(4, max_targets=3),
+    )
+    result = await orch.execute("local", "run1")
+    assert len(probe.processed) == 3
+    assert result.status is RunStatus.PARTIAL
+    assert len(result.outcomes) == 3
+
+
+async def test_parallel_persists_every_target() -> None:
+    probe = ConcurrencyProbe()
+    orch, _, _, cp = _orchestrator(
+        n_targets=6, processor=probe, config=_parallel_config(3)
+    )
+    await orch.execute("local", "run1")
+    # Each target persisted exactly once, terminal, with an outcome.
+    persisted = {c.target_id for c in cp.saved_targets}
+    assert persisted == {f"t{i}" for i in range(6)}
+    assert all(c.is_done and c.outcome is not None for c in cp.saved_targets)
+
+
+async def test_parallel_resume_skips_done() -> None:
+    existing = RunCheckpoint(
+        run_id="run1",
+        targets={
+            "t0": TargetCheckpoint(
+                "t0", TargetState.KEPT, TargetOutcome("t0", OutcomeStatus.COVERED)
+            ),
+            "t2": TargetCheckpoint(
+                "t2",
+                TargetState.DISCARDED,
+                TargetOutcome("t2", OutcomeStatus.UNCOVERED),
+            ),
+        },
+    )
+    probe = ConcurrencyProbe()
+    orch, _, _, _ = _orchestrator(
+        n_targets=5,
+        processor=probe,
+        checkpoint=MockCheckpointStore(existing),
+        config=_parallel_config(4),
+    )
+    result = await orch.execute("local", "run1")
+    assert sorted(probe.processed) == ["t1", "t3", "t4"]
+    assert {o.target_id for o in result.outcomes} == {"t0", "t1", "t2", "t3", "t4"}

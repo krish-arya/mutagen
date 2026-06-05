@@ -56,6 +56,11 @@ max_cost_usd = 0.0
 max_tokens = 0
 max_repair_attempts = 2
 max_strengthen_attempts = 2
+# Number of targets processed concurrently. 1 = sequential. Each target is
+# isolated in its own sandbox/mutation workspace, so this is safe to raise;
+# the work is CPU-bound (pytest + mutmut), so ~the host core count is the
+# practical ceiling.
+max_parallel_targets = 1
 
 [storage]
 # SQLite-backed runs + resumable checkpoints live under this root.

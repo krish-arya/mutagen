@@ -81,9 +81,7 @@ class CostTracker:
             usage.input_tokens * input_rate
             + usage.output_tokens * output_rate
             + usage.cache_read_tokens * input_rate * self._CACHE_READ_MULTIPLIER
-            + usage.cache_write_tokens
-            * input_rate
-            * self._CACHE_WRITE_MULTIPLIER
+            + usage.cache_write_tokens * input_rate * self._CACHE_WRITE_MULTIPLIER
         )
         return CostInfo(
             input_tokens=usage.input_tokens

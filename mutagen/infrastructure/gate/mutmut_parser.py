@@ -50,7 +50,9 @@ _TEXT_LINE_RE = re.compile(
 class MutmutParser:
     """Parses mutmut output into normalized mutation results."""
 
-    def parse(self, raw: str, killing_test_ids: tuple[str, ...] = ()) -> list[MutationResult]:
+    def parse(
+        self, raw: str, killing_test_ids: tuple[str, ...] = ()
+    ) -> list[MutationResult]:
         """Parse mutmut output, trying JSON first then a text fallback.
 
         Args:
@@ -92,17 +94,12 @@ class MutmutParser:
             if not isinstance(record, dict):
                 continue
             mutant_id = str(
-                record.get("id")
-                or record.get("mutant_id")
-                or record.get("name")
-                or ""
+                record.get("id") or record.get("mutant_id") or record.get("name") or ""
             ).strip()
             status = str(record.get("status") or record.get("result") or "").lower()
             if not mutant_id or not status:
                 continue
-            results.append(
-                self._build(mutant_id, status, killing_test_ids, record)
-            )
+            results.append(self._build(mutant_id, status, killing_test_ids, record))
         return results
 
     @staticmethod

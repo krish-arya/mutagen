@@ -78,9 +78,7 @@ class AstTargetSelector(TargetSelector):
 
         all_targets: list[Target] = []
         for rel_path in context.source_files:
-            all_targets.extend(
-                self._rank_file(context.root, rel_path, coverage)
-            )
+            all_targets.extend(self._rank_file(context.root, rel_path, coverage))
 
         all_targets.sort(key=lambda t: (-t.priority, t.qualified_name))
 
@@ -129,6 +127,4 @@ class AstTargetSelector(TargetSelector):
                 extra={"context": {"file": str(rel_path), "error": str(exc)}},
             )
             return []
-        return self._ranker.rank_file(
-            rel_path, functions, coverage.for_file(rel_path)
-        )
+        return self._ranker.rank_file(rel_path, functions, coverage.for_file(rel_path))

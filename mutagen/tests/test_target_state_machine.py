@@ -41,9 +41,7 @@ def test_discard_reachable_from_any_active_state(active: TargetState) -> None:
 
 def test_kept_only_from_mutated() -> None:
     with pytest.raises(StateTransitionError):
-        TargetStateMachine(initial=TargetState.SELECTED).transition_to(
-            TargetState.KEPT
-        )
+        TargetStateMachine(initial=TargetState.SELECTED).transition_to(TargetState.KEPT)
     machine = TargetStateMachine(initial=TargetState.MUTATED)
     assert machine.transition_to(TargetState.KEPT) is TargetState.KEPT
 

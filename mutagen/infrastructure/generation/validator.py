@@ -111,9 +111,7 @@ class TestValidator:
         """Structural sanity checks over the parsed module."""
         errors: list[str] = []
         if not test_names:
-            errors.append(
-                "No test functions found (expected at least one 'test_*')."
-            )
+            errors.append("No test functions found (expected at least one 'test_*').")
         if target_symbol:
             leaf = target_symbol.rsplit(".", 1)[-1]
             if not self._references(tree, leaf):
@@ -142,8 +140,7 @@ class TestValidator:
     def _has_import(tree: ast.Module) -> bool:
         """Whether the module contains any import statement."""
         return any(
-            isinstance(node, (ast.Import, ast.ImportFrom))
-            for node in ast.walk(tree)
+            isinstance(node, (ast.Import, ast.ImportFrom)) for node in ast.walk(tree)
         )
 
     # ------------------------------------------------------------------ #
@@ -156,9 +153,8 @@ class TestValidator:
         for node in tree.body:
             if isinstance(node, ast.Return):
                 errors.append("Top-level 'return' is not valid in a module.")
-            if (
-                isinstance(node, ast.ClassDef)
-                and node.name.startswith(_TEST_CLASS_PREFIX)
+            if isinstance(node, ast.ClassDef) and node.name.startswith(
+                _TEST_CLASS_PREFIX
             ):
                 if self._defines_init(node):
                     errors.append(

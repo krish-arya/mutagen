@@ -46,8 +46,17 @@ _logger = get_logger(__name__)
 
 # Directories never copied into the isolated mutation workspace.
 _IGNORED = shutil.ignore_patterns(
-    ".git", ".hg", "__pycache__", ".venv", "venv", ".mypy_cache",
-    ".pytest_cache", ".ruff_cache", ".mutmut-cache", "build", "dist",
+    ".git",
+    ".hg",
+    "__pycache__",
+    ".venv",
+    "venv",
+    ".mypy_cache",
+    ".pytest_cache",
+    ".ruff_cache",
+    ".mutmut-cache",
+    "build",
+    "dist",
 )
 
 
@@ -84,9 +93,7 @@ class MutmutMutationGate(MutationGate):
     ) -> MutationReport:
         """Evaluate ``tests`` against mutmut mutants of ``target``."""
         if not tests:
-            return self._empty_report(
-                target, "No tests to evaluate."
-            )
+            return self._empty_report(target, "No tests to evaluate.")
 
         try:
             with tempfile.TemporaryDirectory(prefix="mutagen-gate-") as tmp:
@@ -213,9 +220,7 @@ class MutmutMutationGate(MutationGate):
         )
         score = provisional.mutation_score
         survivors = provisional.survivors
-        feedback = SurvivorFeedbackBuilder(self._mc).build(
-            survivors, score=score
-        )
+        feedback = SurvivorFeedbackBuilder(self._mc).build(survivors, score=score)
         kept = score >= self._mc.score_threshold
 
         report = MutationReport(
@@ -241,9 +246,7 @@ class MutmutMutationGate(MutationGate):
         )
         return report
 
-    def _apply_cap(
-        self, results: list[MutationResult]
-    ) -> list[MutationResult]:
+    def _apply_cap(self, results: list[MutationResult]) -> list[MutationResult]:
         """Truncate results to the configured mutant cap, if any."""
         cap = self._mc.max_mutants
         if cap > 0 and len(results) > cap:

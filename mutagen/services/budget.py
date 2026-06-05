@@ -9,9 +9,10 @@ limit logic independently testable.
 
 from __future__ import annotations
 
+import asyncio
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
 
 from mutagen.config.run_config import OrchestratorConfig
@@ -31,6 +32,12 @@ class BudgetReason(str, Enum):
 class BudgetTracker:
     """Tracks spend against the configured orchestration limits.
 
+    Safe for concurrent use: :meth:`try_reserve` and :meth:`record_cost`
+    serialize their read-modify-write through an internal lock, so several
+    in-flight target workers cannot collectively overshoot ``max_targets`` or
+    corrupt the running cost. Synchronous accessors remain for the sequential
+    path and for tests.
+
     Args:
         config: The orchestration limits to enforce.
         clock: Monotonic time source (injected for deterministic tests).
@@ -42,6 +49,7 @@ class BudgetTracker:
     started_at: float = 0.0
     _processed: int = 0
     _cost: CostInfo = None  # type: ignore[assignment]
+    _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False)
 
     def __post_init__(self) -> None:
         if not self.started_at:
@@ -78,6 +86,40 @@ class BudgetTracker:
         Checked *before* scheduling the next target, so an in-flight target is
         always allowed to finish.
         """
+        return self._exhausted()
+
+    # ------------------------------------------------------------------ #
+    # Concurrency-safe operations
+    # ------------------------------------------------------------------ #
+
+    async def try_reserve(self) -> BudgetReason | None:
+        """Atomically check the budget and, if open, reserve one target slot.
+
+        Combining the limit check with the target-count increment under a lock
+        prevents several concurrent workers from each passing an open
+        ``max_targets`` check and collectively overshooting it. Cost/token/
+        wall-clock limits are evaluated against the spend recorded *so far* —
+        concurrency can still overshoot those by up to the number of in-flight
+        targets, which is the accepted "let in-flight work finish" behavior.
+
+        Returns:
+            ``None`` if a slot was reserved (the caller may proceed), or the
+            :class:`BudgetReason` that blocked it (the caller must not start).
+        """
+        async with self._lock:
+            reason = self._exhausted()
+            if reason is not None:
+                return reason
+            self._processed += 1
+            return None
+
+    async def record_cost_safe(self, cost: CostInfo) -> None:
+        """Add ``cost`` to the running spend under the lock."""
+        async with self._lock:
+            self._cost = self._cost.combine(cost)
+
+    def _exhausted(self) -> BudgetReason | None:
+        """Limit check shared by the sync and locked paths (no locking)."""
         cfg = self.config
         if cfg.max_targets > 0 and self._processed >= cfg.max_targets:
             return BudgetReason.MAX_TARGETS

@@ -68,9 +68,7 @@ class GeneratedTest:
         if not self.target_id.strip():
             raise ValidationError("GeneratedTest.target_id must be non-empty.")
         if not self.module_path.strip():
-            raise ValidationError(
-                "GeneratedTest.module_path must be non-empty."
-            )
+            raise ValidationError("GeneratedTest.module_path must be non-empty.")
         if not self.source.strip():
             raise ValidationError("GeneratedTest.source must be non-empty.")
         if not self.test_names:
