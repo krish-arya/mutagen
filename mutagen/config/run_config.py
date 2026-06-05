@@ -129,6 +129,34 @@ class SandboxConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class MutationConfig:
+    """Mutation-gate (mutmut) configuration.
+
+    Controls how the :class:`mutagen.core.interfaces.MutationGate` runs mutmut
+    against a target's generated tests and decides whether to keep them.
+
+    Attributes:
+        score_threshold: Minimum mutation score (killed / scored) required to
+            keep the tests, in ``[0, 1]``.
+        max_mutants: Cap on the number of mutants evaluated per target; ``0``
+            means no cap. Bounds runtime on large targets.
+        timeout_seconds: Wall-clock timeout for the whole mutmut run.
+        per_mutant_timeout_seconds: Timeout mutmut applies per individual test
+            run, passed through to its baseline-time/timeout behavior.
+        max_survivors_in_feedback: Maximum number of surviving mutants detailed
+            in the generated feedback string.
+        max_feedback_chars: Cap on the length of the survivor-feedback string.
+    """
+
+    score_threshold: float = 0.8
+    max_mutants: int = 50
+    timeout_seconds: float = 600.0
+    per_mutant_timeout_seconds: float = 10.0
+    max_survivors_in_feedback: int = 10
+    max_feedback_chars: int = 4000
+
+
+@dataclass(frozen=True, slots=True)
 class SelectionConfig:
     """Target-selection and ranking configuration.
 
@@ -218,6 +246,7 @@ class RunConfig:
         sandbox: Sandbox configuration.
         ingest: Repository-ingestion configuration.
         selection: Target-selection configuration.
+        mutation: Mutation-gate (mutmut) configuration.
         storage: Storage configuration.
     """
 
@@ -232,4 +261,5 @@ class RunConfig:
     sandbox: SandboxConfig = field(default_factory=SandboxConfig)
     ingest: IngestConfig = field(default_factory=IngestConfig)
     selection: SelectionConfig = field(default_factory=SelectionConfig)
+    mutation: MutationConfig = field(default_factory=MutationConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)

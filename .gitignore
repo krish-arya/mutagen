@@ -44,6 +44,13 @@ report.json
 # analyzer's report all live under these paths.
 .mutagen/
 .mutagen-coverage.json
+.mutagen-pytest-report.json
+
+# mutmut (mutation gate) caches and reports
+.mutmut-cache
+.mutmut/
+mutants/
+html/
 
 # Type checker / linter extras
 .pyre/

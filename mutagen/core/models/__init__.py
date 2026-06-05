@@ -16,6 +16,7 @@ from mutagen.core.models.outcome import (
     OutcomeStatus,
     TargetOutcome,
 )
+from mutagen.core.models.mutation_report import MutationReport
 from mutagen.core.models.repo import RepoContext
 from mutagen.core.models.run import RunReport, RunResult, RunStatus
 from mutagen.core.models.target import Target, TargetKind
@@ -32,6 +33,7 @@ __all__ = [
     "RunStatus",
     "MutationResult",
     "MutationVerdict",
+    "MutationReport",
     "TargetOutcome",
     "OutcomeStatus",
     "CostInfo",

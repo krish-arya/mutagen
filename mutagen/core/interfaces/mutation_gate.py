@@ -2,8 +2,9 @@
 
 The :class:`MutationGate` is the quality gate of the pipeline: it decides
 whether a target's generated tests are *good enough* by running them against
-mutants of that target and computing whether they kill enough of them. A
-passing gate yields a :class:`TargetOutcome`.
+mutants of that target and computing whether they kill enough of them. It
+yields a :class:`MutationReport` carrying the score, the surviving mutants,
+the keep/reject decision, and feedback for a re-generation attempt.
 """
 
 from __future__ import annotations
@@ -12,7 +13,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
 from mutagen.core.models.generated_test import GeneratedTest
-from mutagen.core.models.outcome import TargetOutcome
+from mutagen.core.models.mutation_report import MutationReport
 from mutagen.core.models.repo import RepoContext
 from mutagen.core.models.target import Target
 
@@ -26,12 +27,13 @@ class MutationGate(ABC):
         target: Target,
         tests: Sequence[GeneratedTest],
         context: RepoContext,
-    ) -> TargetOutcome:
+    ) -> MutationReport:
         """Evaluate ``tests`` against mutants of ``target``.
 
-        Implementations generate mutants for the target, run the tests against
-        each (typically via a sandbox runner), and aggregate the verdicts into
-        an outcome that reflects whether the tests meet the gate's threshold.
+        Implementations mutate the target, run the tests against each mutant
+        in isolation, and aggregate the verdicts into a report whose
+        :attr:`MutationReport.kept` flag reflects whether the mutation score
+        met the configured threshold.
 
         Args:
             target: The target whose tests are being judged.
@@ -39,6 +41,10 @@ class MutationGate(ABC):
             context: The repository snapshot the mutants are derived from.
 
         Returns:
-            A validated :class:`TargetOutcome` summarizing the verdict.
+            A validated :class:`MutationReport` summarizing the verdict,
+            surviving mutants, decision, and survivor feedback.
+
+        Raises:
+            MutationGateError: If the mutation run cannot be executed.
         """
         raise NotImplementedError

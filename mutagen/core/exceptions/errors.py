@@ -43,6 +43,10 @@ class MutationGenerationError(MutagenError):
     """Raised when mutants cannot be generated for a target."""
 
 
+class MutationGateError(MutagenError):
+    """Raised when the mutation gate cannot run or parse a mutation run."""
+
+
 class TestGenerationError(MutagenError):
     """Raised when tests cannot be generated for a target."""
 
