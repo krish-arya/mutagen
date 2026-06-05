@@ -31,6 +31,41 @@ For each selected target the pipeline:
 4. **Keeps or discards** the tests based on the mutation-score threshold, and
    persists the outcome **immediately** so an interrupted run resumes cleanly.
 
+### Context enrichment (optional)
+
+Generation step 1 can fold in two extra signals — both **off by default**, both
+configured under `[generation]`:
+
+- **Semantic code understanding (call graph).** An AST-based
+  `CallGraphAnalyzer` builds a repo-wide call graph and extracts each target's
+  *execution path* — its transitive callees — so the model writes tests that
+  exercise the whole tree end-to-end rather than just the entry function:
+
+  ```text
+  process_order
+   ├── validate_order
+   ├── calculate_tax
+   └── save_order
+  ```
+
+  The rendered tree **and** the callee sources are added to the prompt. The
+  analyzer resolves only unambiguous in-repo calls (plain, `self`/`cls` methods,
+  imported names) and omits anything it can't pin down — no misleading edges.
+
+- **Retrieval-augmented generation (RAG).** Instead of seeding the prompt with
+  the first couple of test files, an `EmbeddingTestRetriever` indexes the
+  project's existing tests (one chunk per `test_*` function) and retrieves the
+  ones most *similar* to the target by embedding similarity:
+
+  ```text
+  target function ─► vector search ─► relevant existing tests ─► prompt
+  ```
+
+  The default `HashingEmbeddingProvider` is dependency-free and deterministic
+  (no model download, no API key); a real embedding model can drop in behind the
+  same port. Retrieved examples make generated tests far more consistent with
+  the conventions of genuinely related code.
+
 ---
 
 ## Architecture
@@ -67,7 +102,10 @@ concrete adapter in `infrastructure/`:
 | --- | --- | --- |
 | `RepoIngestor` | `ingest/FilesystemRepoIngestor` | Clone/copy repo → isolated workspace, venv, deps |
 | `TargetSelector` | `selection/AstTargetSelector` | Coverage-guided, AST-based target ranking |
+| `CallGraphAnalyzer` | `selection/AstCallGraphAnalyzer` | Build a repo call graph → a target's execution path |
 | `TestGenerator` | `generation/LLMTestGenerator` | Gather context → prompt → validate generated tests |
+| `EmbeddingProvider` | `retrieval/HashingEmbeddingProvider` | Embed text into vectors (dependency-free default) |
+| `TestRetriever` | `retrieval/EmbeddingTestRetriever` | Index existing tests → retrieve the most similar ones |
 | `LLMClient` | `llm/AnthropicLLMClient` | Anthropic API (retries, backoff, cost tracking) |
 | `SandboxRunner` | `sandbox/SubprocessSandboxRunner` | Run pytest isolated (timeout, rlimits, flakiness) |
 | `MutationGate` | `gate/MutmutMutationGate` | Drive mutmut, score, survivor feedback, keep/discard |

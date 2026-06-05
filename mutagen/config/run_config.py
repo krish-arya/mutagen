@@ -92,6 +92,43 @@ class LLMConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class GenerationConfig:
+    """Context-enrichment configuration for test generation.
+
+    Controls two optional signals folded into the generation prompt beyond the
+    target's own source:
+
+    * **Semantic call-graph context** — the target's transitive callees (its
+      execution path), so the model writes tests that exercise real end-to-end
+      behaviour rather than just the top-level body.
+    * **Retrieval-augmented examples** — the most *similar* existing tests,
+      retrieved by embedding similarity, so generated tests match the
+      conventions of genuinely related code instead of an arbitrary file.
+
+    Both default off so behaviour is unchanged unless explicitly enabled.
+
+    Attributes:
+        use_call_graph: Whether to gather and include call-graph (execution
+            path) context for each target.
+        call_graph_max_depth: How many call hops deep to traverse from the
+            target when collecting callees.
+        call_graph_max_callees: Cap on the number of callee snippets included,
+            to keep prompts bounded.
+        use_retrieval: Whether to retrieve similar existing tests via embedding
+            similarity instead of the first-couple-of-files heuristic.
+        retrieval_top_k: Number of retrieved examples to include in the prompt.
+        embedding_dim: Dimensionality of the hashing embedding provider.
+    """
+
+    use_call_graph: bool = False
+    call_graph_max_depth: int = 2
+    call_graph_max_callees: int = 6
+    use_retrieval: bool = False
+    retrieval_top_k: int = 2
+    embedding_dim: int = 256
+
+
+@dataclass(frozen=True, slots=True)
 class CoverageConfig:
     """Coverage-collection configuration."""
 
@@ -278,6 +315,7 @@ class RunConfig:
         score_threshold: Minimum acceptable mutation score in ``[0, 1]``.
         logging: Logging configuration.
         llm: LLM provider configuration.
+        generation: Context-enrichment (call-graph + retrieval) configuration.
         coverage: Coverage configuration.
         sandbox: Sandbox configuration.
         ingest: Repository-ingestion configuration.
@@ -294,6 +332,7 @@ class RunConfig:
     score_threshold: float = 0.0
     logging: LoggingConfig = field(default_factory=LoggingConfig)
     llm: LLMConfig = field(default_factory=LLMConfig)
+    generation: GenerationConfig = field(default_factory=GenerationConfig)
     coverage: CoverageConfig = field(default_factory=CoverageConfig)
     sandbox: SandboxConfig = field(default_factory=SandboxConfig)
     ingest: IngestConfig = field(default_factory=IngestConfig)

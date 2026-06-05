@@ -23,7 +23,10 @@ from pathlib import Path
 
 from mutagen.config.logging import get_logger
 from mutagen.config.run_config import RunConfig
+from mutagen.core.interfaces import CallGraphAnalyzer, TestRetriever
+from mutagen.core.models.call_graph import CallGraph, CallSite
 from mutagen.core.models.repo import RepoContext
+from mutagen.core.models.retrieval import RetrievalQuery
 from mutagen.core.models.target import Target
 
 _logger = get_logger(__name__)
@@ -32,6 +35,7 @@ _logger = get_logger(__name__)
 _MAX_EXAMPLE_FILES = 2
 _MAX_EXAMPLE_CHARS = 4000
 _MAX_CONTEXT_CHARS = 4000
+_MAX_CALLEE_CHARS = 3000
 
 
 @dataclass(frozen=True, slots=True)
@@ -45,6 +49,11 @@ class GatheredContext:
         imports: Import statements from the target's module, as source lines.
         surrounding: Trimmed sibling/module-level source the target may rely on.
         style_examples: Snippets of existing project tests, for style matching.
+        call_tree: ASCII rendering of the target's execution path (its
+            transitive callees), or empty when call-graph context is disabled
+            or the target calls nothing in-repo.
+        callee_sources: Source snippets of the target's transitive callees, so
+            the model can write tests that exercise the whole execution path.
     """
 
     qualified_name: str
@@ -53,13 +62,37 @@ class GatheredContext:
     imports: tuple[str, ...] = field(default_factory=tuple)
     surrounding: str = ""
     style_examples: tuple[str, ...] = field(default_factory=tuple)
+    call_tree: str = ""
+    callee_sources: tuple[str, ...] = field(default_factory=tuple)
 
 
 class ContextGatherer:
-    """Assembles source context for a target from the repository snapshot."""
+    """Assembles source context for a target from the repository snapshot.
 
-    def __init__(self, config: RunConfig) -> None:
+    Two optional collaborators enrich the context when configured:
+
+    * ``call_graph_analyzer`` adds *semantic* understanding — the target's
+      execution path (its transitive callees), gathered once per run and cached.
+    * ``retriever`` adds *retrieval-augmented* style examples — the existing
+      tests most similar to the target, rather than the first couple of files.
+
+    Both are optional; when absent the gatherer behaves exactly as before.
+    """
+
+    def __init__(
+        self,
+        config: RunConfig,
+        call_graph_analyzer: CallGraphAnalyzer | None = None,
+        retriever: TestRetriever | None = None,
+    ) -> None:
         self._config = config
+        self._call_graph_analyzer = call_graph_analyzer
+        self._retriever = retriever
+        # Lazily built per run, keyed by repo root so a reused gatherer across
+        # repos never serves a stale graph/index.
+        self._graph: CallGraph | None = None
+        self._graph_root: Path | None = None
+        self._indexed_root: Path | None = None
 
     def gather(self, target: Target, context: RepoContext) -> GatheredContext:
         """Gather all source context for ``target``.
@@ -76,7 +109,8 @@ class ContextGatherer:
         source = self._extract_target_source(module_source, target)
         imports = self._extract_imports(module_source)
         surrounding = self._extract_surrounding(module_source, target)
-        examples = self._gather_examples(context)
+        examples = self._gather_examples(target, context)
+        call_tree, callee_sources = self._gather_call_graph(target, context)
         return GatheredContext(
             qualified_name=target.qualified_name,
             module_path=module_path,
@@ -84,6 +118,8 @@ class ContextGatherer:
             imports=imports,
             surrounding=surrounding,
             style_examples=examples,
+            call_tree=call_tree,
+            callee_sources=callee_sources,
         )
 
     def _symbol(self, target: Target, module_path: str) -> str:
@@ -185,14 +221,142 @@ class ContextGatherer:
     # Requirement 4: existing test examples
     # ------------------------------------------------------------------ #
 
-    def _gather_examples(self, context: RepoContext) -> tuple[str, ...]:
-        """Read a couple of existing test modules as style examples."""
+    def _gather_examples(self, target: Target, context: RepoContext) -> tuple[str, ...]:
+        """Gather existing-test style examples.
+
+        When retrieval is enabled and a retriever is wired, return the existing
+        tests most *similar* to the target (RAG); otherwise fall back to reading
+        the first couple of test modules.
+        """
+        retrieved = self._retrieve_examples(target, context)
+        if retrieved is not None:
+            return retrieved
         examples: list[str] = []
         for rel in context.test_files[:_MAX_EXAMPLE_FILES]:
             text = self._read(context.root / rel)
             if text.strip():
                 examples.append(self._trim(text, _MAX_EXAMPLE_CHARS))
         return tuple(examples)
+
+    def _retrieve_examples(
+        self, target: Target, context: RepoContext
+    ) -> tuple[str, ...] | None:
+        """Return retrieval-ranked examples, or ``None`` if retrieval is off.
+
+        Returns an empty tuple (not ``None``) if retrieval ran but found
+        nothing, so the caller does not silently fall back to the heuristic.
+        """
+        if not self._config.generation.use_retrieval or self._retriever is None:
+            return None
+        self._ensure_index(context)
+        query = RetrievalQuery(
+            text=f"{target.qualified_name}\n{target.signature}",
+            top_k=self._config.generation.retrieval_top_k,
+            kinds=("test",),
+        )
+        results = self._retriever.retrieve(query)
+        return tuple(
+            self._trim(example.document.text, _MAX_EXAMPLE_CHARS) for example in results
+        )
+
+    def _ensure_index(self, context: RepoContext) -> None:
+        """Build the retrieval index once per repository snapshot."""
+        if self._retriever is None or self._indexed_root == context.root:
+            return
+        from mutagen.infrastructure.retrieval import CorpusIndexer
+
+        documents = CorpusIndexer().build(context)
+        self._retriever.index(documents)
+        self._indexed_root = context.root
+        _logger.info(
+            "retrieval index built",
+            extra={"context": {"documents": len(documents)}},
+        )
+
+    # ------------------------------------------------------------------ #
+    # Semantic call-graph context (execution path)
+    # ------------------------------------------------------------------ #
+
+    def _gather_call_graph(
+        self, target: Target, context: RepoContext
+    ) -> tuple[str, tuple[str, ...]]:
+        """Return ``(call_tree, callee_sources)`` for the target's execution path.
+
+        Builds the repo call graph once (cached per snapshot), locates the
+        target node, and renders both an ASCII tree and the source of each
+        transitive callee, bounded by the configured depth/count caps. Returns
+        empties when call-graph context is disabled or the target is unknown.
+        """
+        gen = self._config.generation
+        if not gen.use_call_graph or self._call_graph_analyzer is None:
+            return "", ()
+        graph = self._ensure_graph(context)
+        key = self._target_key(target)
+        if key is None:
+            return "", ()
+        tree = graph.render_tree(key, max_depth=gen.call_graph_max_depth)
+        callees = graph.transitive_callees(
+            key,
+            max_depth=gen.call_graph_max_depth,
+            max_nodes=gen.call_graph_max_callees,
+        )
+        sources = self._render_callee_sources(callees, context)
+        return tree, sources
+
+    def _ensure_graph(self, context: RepoContext) -> CallGraph:
+        """Build (and cache) the repository call graph for this snapshot."""
+        assert self._call_graph_analyzer is not None
+        if self._graph is None or self._graph_root != context.root:
+            self._graph = self._call_graph_analyzer.analyze(context)
+            self._graph_root = context.root
+        return self._graph
+
+    def _target_key(self, target: Target) -> str | None:
+        """Resolve a target to its call-graph node key, if present."""
+        graph = self._graph
+        if graph is None:
+            return None
+        module_path = self._module_qualname(target.span.path)
+        symbol = self._symbol(target, module_path)
+        candidate = f"{module_path}::{symbol}"
+        if candidate in graph.nodes:
+            return candidate
+        # Fall back to a node whose path+line span matches the target def.
+        for key, site in graph.nodes.items():
+            if (
+                site.path == target.span.path
+                and site.start_line == target.span.start_line
+            ):
+                return key
+        return None
+
+    def _render_callee_sources(
+        self, callees: tuple[CallSite, ...], context: RepoContext
+    ) -> tuple[str, ...]:
+        """Read and label the source of each callee, trimmed to a budget."""
+        snippets: list[str] = []
+        for site in callees:
+            module_source = self._read(context.root / site.path)
+            if not module_source:
+                continue
+            lines = module_source.splitlines()
+            start = max(0, site.start_line - 1)
+            end = min(len(lines), site.end_line)
+            body = "\n".join(lines[start:end])
+            if body.strip():
+                snippets.append(f"# {site.qualified_name}\n{body}")
+        joined = "\n\n".join(snippets)
+        if len(joined) <= _MAX_CALLEE_CHARS:
+            return tuple(snippets)
+        # Drop trailing snippets until under budget rather than mid-cutting one.
+        bounded: list[str] = []
+        used = 0
+        for snippet in snippets:
+            if used + len(snippet) > _MAX_CALLEE_CHARS:
+                break
+            bounded.append(snippet)
+            used += len(snippet)
+        return tuple(bounded)
 
     # ------------------------------------------------------------------ #
     # Helpers

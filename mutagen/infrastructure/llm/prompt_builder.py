@@ -86,6 +86,10 @@ class GenerationRequest:
         surrounding: Trimmed sibling/module-level source the target relies on.
         style_examples: Snippets of existing project tests, for style matching.
         feedback: Optional steering note from a prior generation attempt.
+        call_tree: ASCII rendering of the target's execution path (its
+            transitive callees), for end-to-end test coverage.
+        callee_sources: Source snippets of the target's callees, so tests can
+            cover the whole execution path rather than just the entry function.
     """
 
     qualified_name: str
@@ -96,6 +100,8 @@ class GenerationRequest:
     surrounding: str = ""
     style_examples: tuple[str, ...] = field(default_factory=tuple)
     feedback: str = ""
+    call_tree: str = ""
+    callee_sources: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)
@@ -155,6 +161,16 @@ class PromptBuilder:
             parts.append(
                 "Surrounding context (signatures/constants the target may "
                 f"use):\n```python\n{request.surrounding}\n```"
+            )
+        if request.call_tree:
+            parts.append(
+                "Execution path (functions the target calls — cover these "
+                f"paths end-to-end):\n```text\n{request.call_tree}\n```"
+            )
+        for i, callee in enumerate(request.callee_sources, start=1):
+            parts.append(
+                f"Callee {i} on the execution path (source for reference):\n"
+                f"```python\n{callee}\n```"
             )
         for i, example in enumerate(request.style_examples, start=1):
             parts.append(

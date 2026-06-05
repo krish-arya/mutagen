@@ -34,6 +34,7 @@ from typing import Any
 
 from mutagen.config.run_config import (
     Effort,
+    GenerationConfig,
     LLMConfig,
     LogFormat,
     LoggingConfig,
@@ -114,6 +115,7 @@ def _build(data: dict[str, Any]) -> RunConfig:
         score_threshold=float(data.get("score_threshold", 0.0)),
         logging=_logging(data.get("logging", {})),
         llm=_llm(data.get("llm", {})),
+        generation=_generation(data.get("generation", {})),
         sandbox=_sandbox(data.get("sandbox", {})),
         mutation=_mutation(data.get("mutation", {})),
         orchestrator=_orchestrator(data.get("orchestrator", {})),
@@ -149,6 +151,22 @@ def _llm(table: dict[str, Any]) -> LLMConfig:
         output_usd_per_mtok=float(
             table.get("output_usd_per_mtok", base.output_usd_per_mtok)
         ),
+    )
+
+
+def _generation(table: dict[str, Any]) -> GenerationConfig:
+    base = GenerationConfig()
+    return GenerationConfig(
+        use_call_graph=bool(table.get("use_call_graph", base.use_call_graph)),
+        call_graph_max_depth=int(
+            table.get("call_graph_max_depth", base.call_graph_max_depth)
+        ),
+        call_graph_max_callees=int(
+            table.get("call_graph_max_callees", base.call_graph_max_callees)
+        ),
+        use_retrieval=bool(table.get("use_retrieval", base.use_retrieval)),
+        retrieval_top_k=int(table.get("retrieval_top_k", base.retrieval_top_k)),
+        embedding_dim=int(table.get("embedding_dim", base.embedding_dim)),
     )
 
 

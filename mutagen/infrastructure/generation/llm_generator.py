@@ -141,6 +141,8 @@ class LLMTestGenerator(TestGenerator):
             surrounding=gathered.surrounding,
             style_examples=examples,
             feedback=inputs.feedback,
+            call_tree=gathered.call_tree,
+            callee_sources=gathered.callee_sources,
         )
         return self._prompt_builder.build_generation(request)
 

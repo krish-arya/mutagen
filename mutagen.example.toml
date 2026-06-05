@@ -33,6 +33,26 @@ max_retries = 3
 input_usd_per_mtok = 5.0
 output_usd_per_mtok = 25.0
 
+[generation]
+# Context enrichment for the generation prompt. Both signals default off; they
+# add prompt tokens (and a one-time analysis/index pass per run) in exchange for
+# tests that exercise real execution paths and match genuinely related code.
+
+# Semantic call-graph context: include the target's transitive callees (its
+# execution path), so generated tests cover the whole call tree end-to-end
+# rather than just the entry function's body.
+use_call_graph = false
+call_graph_max_depth = 2        # how many call hops deep to traverse
+call_graph_max_callees = 6      # cap on callee snippets folded into the prompt
+
+# Retrieval-augmented examples: seed the prompt with the existing tests most
+# *similar* to the target (by embedding similarity), instead of the first couple
+# of test files. The default embedding backend is dependency-free and
+# deterministic (no model download, no API key).
+use_retrieval = false
+retrieval_top_k = 2             # number of retrieved examples to include
+embedding_dim = 256             # hashing-embedding dimensionality
+
 [sandbox]
 strategy = "copy"
 max_parallel = 4

@@ -8,6 +8,7 @@ The :class:`AstTargetSelector` composes three focused components:
 """
 
 from mutagen.infrastructure.selection.ast_selector import AstTargetSelector
+from mutagen.infrastructure.selection.call_graph_analyzer import AstCallGraphAnalyzer
 from mutagen.infrastructure.selection.coverage_analyzer import (
     CoverageAnalyzer,
     FileCoverage,
@@ -26,6 +27,7 @@ from mutagen.infrastructure.selection.target_ranker import (
 
 __all__ = [
     "AstTargetSelector",
+    "AstCallGraphAnalyzer",
     "CoverageAnalyzer",
     "ProjectCoverage",
     "FileCoverage",

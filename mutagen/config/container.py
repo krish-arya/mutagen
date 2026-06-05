@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING
 
 from mutagen.config.run_config import RunConfig
 from mutagen.core.interfaces import (
+    CallGraphAnalyzer,
     CheckpointStore,
     LLMClient,
     MutationGate,
@@ -23,6 +24,7 @@ from mutagen.core.interfaces import (
     Store,
     TargetSelector,
     TestGenerator,
+    TestRetriever,
 )
 from mutagen.services.orchestrator import PipelineOrchestrator
 from mutagen.services.reporting_service import ReportingService
@@ -73,16 +75,51 @@ class Container:
 
         return self._memo("selector", lambda: AstTargetSelector(self.config))  # type: ignore[return-value]
 
-    def provide_generator(self) -> TestGenerator:
-        """Resolve the configured :class:`TestGenerator`."""
-        from mutagen.infrastructure.generation import LLMTestGenerator
+    def provide_call_graph_analyzer(self) -> CallGraphAnalyzer | None:
+        """Resolve the :class:`CallGraphAnalyzer`, or ``None`` if disabled."""
+        if not self.config.generation.use_call_graph:
+            return None
+        from mutagen.infrastructure.selection import AstCallGraphAnalyzer
 
-        return self._memo(
-            "generator",
-            lambda: LLMTestGenerator(
-                config=self.config, llm_client=self.provide_llm_client()
-            ),
-        )  # type: ignore[return-value]
+        return self._memo("call_graph", AstCallGraphAnalyzer)  # type: ignore[return-value]
+
+    def provide_retriever(self) -> TestRetriever | None:
+        """Resolve the :class:`TestRetriever`, or ``None`` if disabled."""
+        if not self.config.generation.use_retrieval:
+            return None
+        from mutagen.infrastructure.retrieval import (
+            EmbeddingTestRetriever,
+            HashingEmbeddingProvider,
+        )
+
+        def build() -> TestRetriever:
+            embedder = HashingEmbeddingProvider(self.config.generation.embedding_dim)
+            return EmbeddingTestRetriever(embedder)
+
+        return self._memo("retriever", build)  # type: ignore[return-value]
+
+    def provide_generator(self) -> TestGenerator:
+        """Resolve the configured :class:`TestGenerator`.
+
+        Builds a :class:`ContextGatherer` enriched with the optional call-graph
+        analyzer and test retriever (each present only when enabled in config),
+        so semantic and retrieval-augmented context flow into the prompt.
+        """
+        from mutagen.infrastructure.generation import ContextGatherer, LLMTestGenerator
+
+        def build() -> TestGenerator:
+            gatherer = ContextGatherer(
+                self.config,
+                call_graph_analyzer=self.provide_call_graph_analyzer(),
+                retriever=self.provide_retriever(),
+            )
+            return LLMTestGenerator(
+                config=self.config,
+                llm_client=self.provide_llm_client(),
+                gatherer=gatherer,
+            )
+
+        return self._memo("generator", build)  # type: ignore[return-value]
 
     def provide_sandbox_runner(self) -> SandboxRunner:
         """Resolve the configured :class:`SandboxRunner`."""
