@@ -9,6 +9,7 @@ from mutagen.core.exceptions.errors import (
     ConfigurationError,
     CoverageError,
     DependencyResolutionError,
+    IngestionError,
     LLMError,
     MutagenError,
     MutationGenerationError,
@@ -16,14 +17,19 @@ from mutagen.core.exceptions.errors import (
     SandboxError,
     StateTransitionError,
     TestExecutionError,
+    TestGenerationError,
+    ValidationError,
 )
 
 __all__ = [
     "MutagenError",
+    "ValidationError",
     "ConfigurationError",
     "DependencyResolutionError",
     "StateTransitionError",
+    "IngestionError",
     "MutationGenerationError",
+    "TestGenerationError",
     "CoverageError",
     "SandboxError",
     "TestExecutionError",

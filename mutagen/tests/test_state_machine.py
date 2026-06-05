@@ -29,9 +29,9 @@ def test_illegal_transition_raises() -> None:
 
 def test_terminal_state_is_terminal() -> None:
     assert RunState.COMPLETED.is_terminal
-    assert not RunState.EVALUATING.is_terminal
+    assert not RunState.GENERATING_TESTS.is_terminal
 
 
 def test_any_active_state_can_fail() -> None:
-    machine = RunStateMachine(initial=RunState.EVALUATING)
+    machine = RunStateMachine(initial=RunState.GENERATING_TESTS)
     assert machine.transition_to(RunState.FAILED) is RunState.FAILED

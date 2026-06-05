@@ -13,10 +13,11 @@ from mutagen.core.state_machine.states import RunState
 # FAILED or CANCELLED; those edges are added programmatically below.
 _BASE_TRANSITIONS: dict[RunState, frozenset[RunState]] = {
     RunState.PENDING: frozenset({RunState.INITIALIZING}),
-    RunState.INITIALIZING: frozenset({RunState.COLLECTING_COVERAGE}),
-    RunState.COLLECTING_COVERAGE: frozenset({RunState.GENERATING_MUTANTS}),
-    RunState.GENERATING_MUTANTS: frozenset({RunState.EVALUATING}),
-    RunState.EVALUATING: frozenset({RunState.REPORTING}),
+    RunState.INITIALIZING: frozenset({RunState.INGESTING}),
+    RunState.INGESTING: frozenset({RunState.SELECTING_TARGETS}),
+    RunState.SELECTING_TARGETS: frozenset({RunState.GENERATING_TESTS}),
+    RunState.GENERATING_TESTS: frozenset({RunState.GATING}),
+    RunState.GATING: frozenset({RunState.REPORTING}),
     RunState.REPORTING: frozenset({RunState.COMPLETED}),
     RunState.COMPLETED: frozenset(),
     RunState.FAILED: frozenset(),

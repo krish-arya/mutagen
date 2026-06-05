@@ -1,7 +1,8 @@
 """Reporting application service.
 
-Selects and drives the configured :class:`Reporter` adapters to render a
-completed run, and evaluates pass/fail against the score threshold.
+Summarizes a :class:`RunResult` into a :class:`RunReport`, drives the
+configured :class:`Reporter`, and evaluates the run against the configured
+coverage/score thresholds.
 """
 
 from __future__ import annotations
@@ -10,20 +11,24 @@ from dataclasses import dataclass
 
 from mutagen.config.run_config import RunConfig
 from mutagen.core.interfaces import Reporter
-from mutagen.core.models.run import RunResult
+from mutagen.core.models.run import RunReport, RunResult
 
 
 @dataclass(slots=True)
 class ReportingService:
-    """Renders run results and enforces the configured score threshold."""
+    """Summarizes, renders, and gates a run on its thresholds."""
 
     config: RunConfig
     reporter: Reporter
 
-    async def render(self, result: RunResult) -> str:
-        """Render ``result`` and return the output location."""
+    def summarize(self, result: RunResult) -> RunReport:
+        """Derive a :class:`RunReport` from a raw :class:`RunResult`."""
         raise NotImplementedError
 
-    def meets_threshold(self, result: RunResult) -> bool:
-        """Whether the run's mutation score satisfies the threshold."""
+    async def render(self, report: RunReport) -> str:
+        """Render ``report`` and return the output location."""
+        raise NotImplementedError
+
+    def meets_threshold(self, report: RunReport) -> bool:
+        """Whether the report satisfies the configured score threshold."""
         raise NotImplementedError

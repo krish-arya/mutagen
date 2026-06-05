@@ -15,9 +15,10 @@ class RunState(str, Enum):
 
     PENDING = "pending"
     INITIALIZING = "initializing"
-    COLLECTING_COVERAGE = "collecting_coverage"
-    GENERATING_MUTANTS = "generating_mutants"
-    EVALUATING = "evaluating"
+    INGESTING = "ingesting"
+    SELECTING_TARGETS = "selecting_targets"
+    GENERATING_TESTS = "generating_tests"
+    GATING = "gating"
     REPORTING = "reporting"
     COMPLETED = "completed"
     FAILED = "failed"

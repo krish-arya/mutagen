@@ -1,14 +1,18 @@
-"""Reporter port."""
+"""Reporter port.
+
+A :class:`Reporter` renders a :class:`RunReport` into a concrete output
+format (terminal, JSON, HTML, …) and returns where it was written.
+"""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from mutagen.core.models.run import RunResult
+from mutagen.core.models.run import RunReport
 
 
 class Reporter(ABC):
-    """Port for rendering a run result into a human- or machine-readable form."""
+    """Port for rendering a run report into a concrete output."""
 
     @property
     @abstractmethod
@@ -17,6 +21,14 @@ class Reporter(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    async def report(self, result: RunResult) -> str:
-        """Render ``result`` and return the path or location of the output."""
+    async def report(self, report: RunReport) -> str:
+        """Render ``report`` and return the path or location of the output.
+
+        Args:
+            report: The summarized run report to render.
+
+        Returns:
+            A string locating the rendered output (path, URL, or the rendered
+            text itself for streaming reporters).
+        """
         raise NotImplementedError

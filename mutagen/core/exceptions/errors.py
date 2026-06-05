@@ -15,6 +15,14 @@ class MutagenError(Exception):
         self.message = message
 
 
+class ValidationError(MutagenError):
+    """Raised when a domain model fails its invariant checks.
+
+    Raised by the ``validate()`` method of domain dataclasses when their
+    fields are internally inconsistent or out of range.
+    """
+
+
 class ConfigurationError(MutagenError):
     """Raised when configuration is missing, malformed, or invalid."""
 
@@ -27,8 +35,16 @@ class StateTransitionError(MutagenError):
     """Raised when an illegal run-state transition is attempted."""
 
 
+class IngestionError(MutagenError):
+    """Raised when a repository cannot be ingested into a RepoContext."""
+
+
 class MutationGenerationError(MutagenError):
     """Raised when mutants cannot be generated for a target."""
+
+
+class TestGenerationError(MutagenError):
+    """Raised when tests cannot be generated for a target."""
 
 
 class CoverageError(MutagenError):

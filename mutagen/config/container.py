@@ -14,14 +14,14 @@ from dataclasses import dataclass
 from mutagen.config.run_config import RunConfig
 from mutagen.core.exceptions import DependencyResolutionError
 from mutagen.core.interfaces import (
-    ArtifactStore,
-    CoverageCollector,
     LLMClient,
-    MutationGenerator,
+    MutationGate,
+    RepoIngestor,
     Reporter,
-    RunRepository,
-    Sandbox,
-    TestRunner,
+    SandboxRunner,
+    Store,
+    TargetSelector,
+    TestGenerator,
 )
 
 
@@ -38,44 +38,44 @@ class Container:
 
     # Cached singletons, populated lazily by the provider methods.
     _llm_client: LLMClient | None = None
-    _coverage_collector: CoverageCollector | None = None
-    _mutation_generator: MutationGenerator | None = None
-    _sandbox: Sandbox | None = None
-    _test_runner: TestRunner | None = None
-    _artifact_store: ArtifactStore | None = None
-    _run_repository: RunRepository | None = None
+    _ingestor: RepoIngestor | None = None
+    _selector: TargetSelector | None = None
+    _generator: TestGenerator | None = None
+    _sandbox_runner: SandboxRunner | None = None
+    _gate: MutationGate | None = None
     _reporter: Reporter | None = None
+    _store: Store | None = None
 
     def provide_llm_client(self) -> LLMClient:
         """Resolve the configured :class:`LLMClient`."""
         raise NotImplementedError
 
-    def provide_coverage_collector(self) -> CoverageCollector:
-        """Resolve the configured :class:`CoverageCollector`."""
+    def provide_ingestor(self) -> RepoIngestor:
+        """Resolve the configured :class:`RepoIngestor`."""
         raise NotImplementedError
 
-    def provide_mutation_generator(self) -> MutationGenerator:
-        """Resolve the configured :class:`MutationGenerator`."""
+    def provide_selector(self) -> TargetSelector:
+        """Resolve the configured :class:`TargetSelector`."""
         raise NotImplementedError
 
-    def provide_sandbox(self) -> Sandbox:
-        """Resolve the configured :class:`Sandbox`."""
+    def provide_generator(self) -> TestGenerator:
+        """Resolve the configured :class:`TestGenerator`."""
         raise NotImplementedError
 
-    def provide_test_runner(self) -> TestRunner:
-        """Resolve the configured :class:`TestRunner`."""
+    def provide_sandbox_runner(self) -> SandboxRunner:
+        """Resolve the configured :class:`SandboxRunner`."""
         raise NotImplementedError
 
-    def provide_artifact_store(self) -> ArtifactStore:
-        """Resolve the configured :class:`ArtifactStore`."""
-        raise NotImplementedError
-
-    def provide_run_repository(self) -> RunRepository:
-        """Resolve the configured :class:`RunRepository`."""
+    def provide_gate(self) -> MutationGate:
+        """Resolve the configured :class:`MutationGate`."""
         raise NotImplementedError
 
     def provide_reporter(self) -> Reporter:
         """Resolve the configured :class:`Reporter`."""
+        raise NotImplementedError
+
+    def provide_store(self) -> Store:
+        """Resolve the configured :class:`Store`."""
         raise NotImplementedError
 
     def _unresolved(self, port: str) -> DependencyResolutionError:

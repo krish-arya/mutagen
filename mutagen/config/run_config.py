@@ -37,17 +37,58 @@ class LoggingConfig:
     file: Path | None = None
 
 
+class Effort(str, Enum):
+    """Effort levels controlling thinking depth and token spend.
+
+    Maps to the Anthropic ``output_config.effort`` parameter. ``MAX`` is
+    Opus-tier only. Higher effort trades latency and cost for capability.
+    """
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    XHIGH = "xhigh"
+    MAX = "max"
+
+
 @dataclass(frozen=True, slots=True)
 class LLMConfig:
-    """Configuration for the optional LLM-assisted mutation provider."""
+    """Configuration for the optional LLM-assisted generation provider.
+
+    Targets the Anthropic Messages API with adaptive thinking. Note there is
+    no ``temperature`` field: Opus 4.7+ rejects sampling parameters, so the
+    model is steered via prompting and :attr:`effort` instead.
+
+    Attributes:
+        enabled: Whether LLM-assisted generation is active.
+        provider: Provider name; only ``"anthropic"`` is supported today.
+        model: Model identifier (e.g. ``"claude-opus-4-8"``).
+        api_key_env: Environment variable holding the API key.
+        max_tokens: Hard cap on output tokens per request.
+        effort: Thinking/effort level for requests.
+        adaptive_thinking: Whether to enable adaptive thinking.
+        timeout_seconds: Per-request timeout passed to the SDK.
+        max_retries: Additional retry attempts for transient API failures
+            (rate limits, 5xx), on top of the SDK's own retry handling.
+        retry_backoff_seconds: Base delay for the adapter's backoff between
+            its own retries.
+        input_usd_per_mtok: Input price in USD per million tokens, for cost
+            estimation.
+        output_usd_per_mtok: Output price in USD per million tokens.
+    """
 
     enabled: bool = False
     provider: str = "anthropic"
     model: str = "claude-opus-4-8"
     api_key_env: str = "ANTHROPIC_API_KEY"
-    max_tokens: int = 2048
-    temperature: float = 0.0
-    timeout_seconds: float = 60.0
+    max_tokens: int = 4096
+    effort: Effort = Effort.HIGH
+    adaptive_thinking: bool = True
+    timeout_seconds: float = 120.0
+    max_retries: int = 3
+    retry_backoff_seconds: float = 1.0
+    input_usd_per_mtok: float = 5.0
+    output_usd_per_mtok: float = 25.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +106,72 @@ class SandboxConfig:
     strategy: str = "copy"
     max_parallel: int = 4
     test_timeout_seconds: float = 30.0
+
+
+@dataclass(frozen=True, slots=True)
+class SelectionConfig:
+    """Target-selection and ranking configuration.
+
+    Controls how the :class:`mutagen.core.interfaces.TargetSelector` filters
+    and ranks candidate functions. Defaults aim for "test the meaty,
+    under-covered functions and skip the noise."
+
+    Attributes:
+        trivial_max_statements: Functions with at most this many body
+            statements are considered trivial and filtered out.
+        giant_max_statements: Functions with more than this many body
+            statements are considered giant and filtered out (too large to
+            generate meaningful tests for in one pass).
+        exclude_property_getters: Whether to drop ``@property`` getters.
+        coverage_weight: Weight of the under-coverage term in the priority
+            score.
+        size_weight: Weight of the (normalized) size term in the priority
+            score.
+        max_targets: Optional cap on the number of targets returned; ``0``
+            means unlimited.
+    """
+
+    trivial_max_statements: int = 1
+    giant_max_statements: int = 80
+    exclude_property_getters: bool = True
+    coverage_weight: float = 0.8
+    size_weight: float = 0.2
+    max_targets: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class IngestConfig:
+    """Repository-ingestion configuration.
+
+    Controls how the :class:`mutagen.core.interfaces.RepoIngestor` acquires a
+    repository (clone/copy), provisions an isolated virtualenv, and installs
+    dependencies. Every heavyweight, host-touching step is individually
+    gated so runs and tests can opt out.
+
+    Attributes:
+        workspace_root: Directory under which isolated working copies are
+            created. Each ingest gets a fresh subdirectory beneath it.
+        create_venv: Whether to create a per-repo virtualenv.
+        install_deps: Whether to install detected dependencies into the venv.
+        clone_depth: Git shallow-clone depth; ``0`` means a full clone.
+        command_timeout_seconds: Per-subprocess timeout (clone, venv, pip).
+        max_retries: Number of additional attempts for retryable subprocess
+            failures (network clone / pip install). ``0`` disables retries.
+        retry_backoff_seconds: Base delay for exponential backoff between
+            retries.
+        pip_extra_args: Extra arguments appended to ``pip install`` invocations.
+    """
+
+    workspace_root: Path = field(
+        default_factory=lambda: Path(".mutagen") / "workspaces"
+    )
+    create_venv: bool = True
+    install_deps: bool = True
+    clone_depth: int = 1
+    command_timeout_seconds: float = 600.0
+    max_retries: int = 2
+    retry_backoff_seconds: float = 1.0
+    pip_extra_args: tuple[str, ...] = field(default_factory=tuple)
 
 
 @dataclass(frozen=True, slots=True)
@@ -89,6 +196,8 @@ class RunConfig:
         llm: LLM provider configuration.
         coverage: Coverage configuration.
         sandbox: Sandbox configuration.
+        ingest: Repository-ingestion configuration.
+        selection: Target-selection configuration.
         storage: Storage configuration.
     """
 
@@ -101,4 +210,6 @@ class RunConfig:
     llm: LLMConfig = field(default_factory=LLMConfig)
     coverage: CoverageConfig = field(default_factory=CoverageConfig)
     sandbox: SandboxConfig = field(default_factory=SandboxConfig)
+    ingest: IngestConfig = field(default_factory=IngestConfig)
+    selection: SelectionConfig = field(default_factory=SelectionConfig)
     storage: StorageConfig = field(default_factory=StorageConfig)

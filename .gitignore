@@ -1,0 +1,81 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Distribution / packaging
+.Python
+build/
+dist/
+*.egg-info/
+*.egg
+.eggs/
+wheels/
+MANIFEST
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+
+# Test, coverage, and type-checking caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.hypothesis/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+*.cover
+nosetests.xml
+junit*.xml
+report.json
+
+# Mutagen runtime artifacts
+# Default StorageConfig.root / IngestConfig.workspace_root and the coverage
+# analyzer's report all live under these paths.
+.mutagen/
+.mutagen-coverage.json
+
+# Type checker / linter extras
+.pyre/
+.pytype/
+.dmypy.json
+dmypy.json
+
+# Jupyter / IPython
+.ipynb_checkpoints/
+profile_default/
+ipython_config.py
+
+# IDE & editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+*.sublime-project
+*.sublime-workspace
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Secrets / local credentials
+*.pem
+secrets.toml
+.secrets/

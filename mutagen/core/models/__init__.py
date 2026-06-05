@@ -1,30 +1,42 @@
 """Domain models.
 
-Immutable, framework-agnostic dataclasses that represent the core concepts
-of the mutation-testing domain. These types carry no behavior beyond simple
-derived properties and validation.
+Immutable, framework-agnostic dataclasses representing the core concepts of
+the test-generation pipeline: the ingested repository, selected targets, the
+tests generated for them, and the results of validating those tests against
+mutants. Every model exposes a ``validate()`` method enforcing its invariants.
 """
 
-from mutagen.core.models.coverage import CoverageReport, FileCoverage
+from mutagen.core.models.cost import CostInfo
+from mutagen.core.models.generated_test import GeneratedTest
+from mutagen.core.models.generation import GenerationInputs
 from mutagen.core.models.location import SourceLocation, SourceSpan
-from mutagen.core.models.mutant import Mutant, MutantResult, Mutation
-from mutagen.core.models.run import RunResult, RunSummary
-from mutagen.core.models.target import MutationTarget, TargetModule
-from mutagen.core.models.test import TestCase, TestOutcome, TestSuiteResult
+from mutagen.core.models.outcome import (
+    MutationResult,
+    MutationVerdict,
+    OutcomeStatus,
+    TargetOutcome,
+)
+from mutagen.core.models.repo import RepoContext
+from mutagen.core.models.run import RunReport, RunResult, RunStatus
+from mutagen.core.models.target import Target, TargetKind
+from mutagen.core.models.test_run import RunnerStatus, SandboxResult
 
 __all__ = [
-    "CoverageReport",
-    "FileCoverage",
+    "RepoContext",
+    "Target",
+    "TargetKind",
+    "GeneratedTest",
+    "GenerationInputs",
+    "RunResult",
+    "RunReport",
+    "RunStatus",
+    "MutationResult",
+    "MutationVerdict",
+    "TargetOutcome",
+    "OutcomeStatus",
+    "CostInfo",
+    "SandboxResult",
+    "RunnerStatus",
     "SourceLocation",
     "SourceSpan",
-    "Mutant",
-    "MutantResult",
-    "Mutation",
-    "RunResult",
-    "RunSummary",
-    "MutationTarget",
-    "TargetModule",
-    "TestCase",
-    "TestOutcome",
-    "TestSuiteResult",
 ]

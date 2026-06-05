@@ -1,18 +1,18 @@
 """Application services layer.
 
-Services orchestrate domain models and ports to fulfil use cases. They depend
-only on abstractions from :mod:`mutagen.core.interfaces`, never on concrete
-infrastructure, and contain no I/O of their own.
+Services orchestrate domain models and ports to fulfil the test-generation use
+case. They depend only on abstractions from :mod:`mutagen.core.interfaces`,
+never on concrete infrastructure, and perform no I/O of their own.
 """
 
-from mutagen.services.coverage_service import CoverageService
-from mutagen.services.mutation_service import MutationService
-from mutagen.services.orchestrator import RunOrchestrator
+from mutagen.services.generation_service import GenerationService
+from mutagen.services.orchestrator import PipelineOrchestrator
 from mutagen.services.reporting_service import ReportingService
+from mutagen.services.selection_service import SelectionService
 
 __all__ = [
-    "RunOrchestrator",
-    "MutationService",
-    "CoverageService",
+    "PipelineOrchestrator",
+    "SelectionService",
+    "GenerationService",
     "ReportingService",
 ]

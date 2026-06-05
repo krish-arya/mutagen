@@ -1,8 +1,9 @@
-"""Run orchestration service.
+"""Pipeline orchestration service.
 
-The orchestrator drives a complete mutation-testing run through the lifecycle
-defined by :class:`RunStateMachine`, delegating each phase to a collaborating
-service or port. It owns sequencing, not the work itself.
+The orchestrator drives a complete test-generation run through the lifecycle
+defined by :class:`RunStateMachine`: ingest the repo, select targets, generate
+tests, gate them against mutants, report, and persist. It owns sequencing —
+not the work itself, which it delegates to ports and collaborating services.
 """
 
 from __future__ import annotations
@@ -10,33 +11,37 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from mutagen.config.run_config import RunConfig
-from mutagen.core.interfaces import Reporter, RunRepository, Sandbox, TestRunner
+from mutagen.core.interfaces import RepoIngestor, Reporter, Store
 from mutagen.core.models.run import RunResult
 from mutagen.core.state_machine import RunStateMachine
-from mutagen.services.coverage_service import CoverageService
-from mutagen.services.mutation_service import MutationService
+from mutagen.services.generation_service import GenerationService
+from mutagen.services.reporting_service import ReportingService
+from mutagen.services.selection_service import SelectionService
 
 
 @dataclass(slots=True)
-class RunOrchestrator:
-    """Coordinates the phases of a single mutation-testing run."""
+class PipelineOrchestrator:
+    """Coordinates the phases of a single test-generation run."""
 
     config: RunConfig
-    coverage_service: CoverageService
-    mutation_service: MutationService
-    sandbox: Sandbox
-    test_runner: TestRunner
+    ingestor: RepoIngestor
+    selection_service: SelectionService
+    generation_service: GenerationService
+    reporting_service: ReportingService
     reporter: Reporter
-    repository: RunRepository
+    store: Store
     state_machine: RunStateMachine
 
     async def execute(self, run_id: str) -> RunResult:
-        """Execute the full run identified by ``run_id``.
+        """Execute the full pipeline for ``run_id``.
 
         Walks the state machine from initialization through reporting,
-        delegating each phase, and persists the final result.
+        delegating each phase, and persists the final result via the store.
+
+        Args:
+            run_id: Stable identifier for this run.
 
         Returns:
-            The aggregated :class:`RunResult`.
+            The aggregated, validated :class:`RunResult`.
         """
         raise NotImplementedError
