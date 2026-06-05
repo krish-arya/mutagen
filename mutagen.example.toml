@@ -1,0 +1,63 @@
+# Example Mutagen configuration.
+#
+# Copy to `mutagen.toml` and pass with `mutagen -c mutagen.toml run <repo>`.
+# Every table is optional; omitted values fall back to documented defaults.
+
+# Root of the project under test (relative paths resolve from here).
+project_root = "."
+
+# Minimum overall mutation score required for `mutagen run` to exit 0.
+score_threshold = 0.8
+
+[logging]
+# DEBUG | INFO | WARNING | ERROR | CRITICAL
+level = "INFO"
+# "text" for humans, "json" for structured log ingestion.
+format = "json"
+# Optional file to tee logs to (parent dirs are created).
+# file = ".mutagen/mutagen.log"
+
+[llm]
+enabled = true
+provider = "anthropic"
+model = "claude-opus-4-8"
+# Environment variable holding the API key.
+api_key_env = "ANTHROPIC_API_KEY"
+max_tokens = 4096
+# low | medium | high | xhigh | max
+effort = "high"
+adaptive_thinking = true
+timeout_seconds = 120.0
+max_retries = 3
+# Pricing used for cost estimation (USD per million tokens).
+input_usd_per_mtok = 5.0
+output_usd_per_mtok = 25.0
+
+[sandbox]
+strategy = "copy"
+max_parallel = 4
+test_timeout_seconds = 30.0
+cpu_time_limit_seconds = 60     # POSIX rlimit; no-op on Windows
+memory_limit_mb = 1024          # POSIX rlimit; no-op on Windows
+detect_flakiness = true
+
+[mutation]
+# Kill-ratio required to keep a target's tests.
+score_threshold = 0.8
+max_mutants = 50
+timeout_seconds = 600.0
+
+[orchestrator]
+# Budget / cost ceilings. 0 = unlimited. Hitting any limit stops the run
+# cleanly with a PARTIAL, resumable result.
+max_targets = 0
+max_wallclock_seconds = 0.0
+max_cost_usd = 0.0
+max_tokens = 0
+max_repair_attempts = 2
+max_strengthen_attempts = 2
+
+[storage]
+# SQLite-backed runs + resumable checkpoints live under this root.
+backend = "sqlite"
+root = ".mutagen"

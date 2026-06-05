@@ -40,11 +40,17 @@ junit*.xml
 report.json
 
 # Mutagen runtime artifacts
-# Default StorageConfig.root / IngestConfig.workspace_root and the coverage
-# analyzer's report all live under these paths.
+# Default StorageConfig.root / IngestConfig.workspace_root, the SQLite DB,
+# reports, the coverage analyzer's report all live under these paths.
 .mutagen/
 .mutagen-coverage.json
 .mutagen-pytest-report.json
+*.db
+*.db-wal
+*.db-shm
+
+# Local config (the committed template is mutagen.example.toml)
+mutagen.toml
 
 # mutmut (mutation gate) caches and reports
 .mutmut-cache

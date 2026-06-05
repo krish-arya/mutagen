@@ -42,6 +42,11 @@ from mutagen.core.models.run import RunResult, RunStatus
 from mutagen.core.models.target import Target
 from mutagen.core.state_machine import RunState, RunStateMachine, TargetState
 from mutagen.services.budget import BudgetReason, BudgetTracker
+from mutagen.services.progress import (
+    ProgressEvent,
+    ProgressListener,
+    ProgressPhase,
+)
 from mutagen.services.reporting_service import ReportingService
 from mutagen.services.selection_service import SelectionService
 from mutagen.services.target_processor import ProcessResult, TargetProcessor
@@ -62,6 +67,12 @@ class PipelineOrchestrator:
     store: Store
     checkpoint_store: CheckpointStore
     state_machine: RunStateMachine = field(default_factory=RunStateMachine)
+    progress: ProgressListener | None = None
+
+    def _emit(self, event: ProgressEvent) -> None:
+        """Announce a progress event if a listener is attached."""
+        if self.progress is not None:
+            self.progress(event)
 
     async def execute(self, source: str, run_id: str) -> RunResult:
         """Execute (or resume) the run identified by ``run_id``.
@@ -125,10 +136,14 @@ class PipelineOrchestrator:
     async def _ingest(self, source: str) -> RepoContext:
         self._transition(RunState.INITIALIZING)
         self._transition(RunState.INGESTING)
+        self._emit(
+            ProgressEvent(ProgressPhase.INGESTING, f"Ingesting {source}")
+        )
         return await self.ingestor.ingest(source)
 
     async def _select(self, context: RepoContext) -> Sequence[Target]:
         self._transition(RunState.SELECTING_TARGETS)
+        self._emit(ProgressEvent(ProgressPhase.SELECTING, "Selecting targets"))
         return await self.selection_service.select(context)
 
     # ------------------------------------------------------------------ #
@@ -157,6 +172,7 @@ class PipelineOrchestrator:
         # Carry forward outcomes already completed on a prior run.
         outcomes: list[TargetOutcome] = list(checkpoint.completed_outcomes)
         stopped: BudgetReason | None = None
+        total = len(targets)
 
         for target in targets:
             if checkpoint.is_target_done(target.target_id):
@@ -171,11 +187,27 @@ class PipelineOrchestrator:
                 )
                 break
 
+            self._emit(
+                ProgressEvent(
+                    ProgressPhase.PROCESSING,
+                    f"Processing {target.qualified_name}",
+                    completed=len(outcomes),
+                    total=total,
+                )
+            )
             result = await self.target_processor.process(target, context)
             budget.record_target()
             budget.record_cost(result.outcome.cost)
             outcomes.append(result.outcome)
             await self._persist_target(run_id, result)
+            self._emit(
+                ProgressEvent(
+                    ProgressPhase.PROCESSING,
+                    f"{result.final_state.value}: {target.qualified_name}",
+                    completed=len(outcomes),
+                    total=total,
+                )
+            )
 
         self._transition(RunState.GATING)
         return outcomes, stopped
@@ -227,9 +259,13 @@ class PipelineOrchestrator:
     async def _report_and_persist(self, result: RunResult) -> None:
         """Render the report and persist the final run result."""
         self._transition(RunState.REPORTING)
+        self._emit(ProgressEvent(ProgressPhase.REPORTING, "Writing reports"))
         report = self.reporting_service.summarize(result)
         await self.reporter.report(report)
         await self.store.save_run(result)
+        self._emit(
+            ProgressEvent(ProgressPhase.DONE, f"Run {result.status.value}")
+        )
 
     # ------------------------------------------------------------------ #
     # State-machine helpers

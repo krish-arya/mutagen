@@ -17,18 +17,32 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Typing :: Typed",
 ]
-dependencies = []
+# Runtime essentials needed for the CLI, reporting, and persistence. The
+# heavier integrations (Anthropic SDK, coverage, mutmut) are extras so a thin
+# install stays light; `pip install mutagen[all]` pulls in everything.
+dependencies = [
+    "rich>=13.0",
+]
 
 [project.optional-dependencies]
 llm = ["anthropic>=0.40", "jsonschema>=4.0"]
 coverage = ["coverage>=7.4"]
 sandbox = ["pytest>=8.0", "pytest-json-report>=1.5"]
 mutation = ["mutmut>=2.4"]
+all = [
+    "anthropic>=0.40",
+    "jsonschema>=4.0",
+    "coverage>=7.4",
+    "pytest>=8.0",
+    "pytest-json-report>=1.5",
+    "mutmut>=2.4",
+]
 dev = [
     "pytest>=8.0",
     "pytest-asyncio>=0.23",
     "pytest-json-report>=1.5",
     "jsonschema>=4.0",
+    "anthropic>=0.40",
     "mypy>=1.9",
     "ruff>=0.4",
 ]

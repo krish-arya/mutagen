@@ -12,6 +12,11 @@ the run's budget and cost limits.
 from mutagen.services.budget import BudgetReason, BudgetTracker
 from mutagen.services.generation_service import GenerationService
 from mutagen.services.orchestrator import PipelineOrchestrator
+from mutagen.services.progress import (
+    ProgressEvent,
+    ProgressListener,
+    ProgressPhase,
+)
 from mutagen.services.reporting_service import ReportingService
 from mutagen.services.selection_service import SelectionService
 from mutagen.services.target_processor import ProcessResult, TargetProcessor
@@ -22,6 +27,9 @@ __all__ = [
     "ProcessResult",
     "BudgetTracker",
     "BudgetReason",
+    "ProgressEvent",
+    "ProgressPhase",
+    "ProgressListener",
     "SelectionService",
     "GenerationService",
     "ReportingService",
