@@ -133,8 +133,7 @@ def _logging(table: dict[str, Any]) -> LoggingConfig:
     )
 
 
-# Per-provider conventional defaults, applied when the config doesn't override
-# them. Keeps the common case ("provider = 'openrouter'") zero-config.
+# Per-provider defaults used when the config doesn't set them explicitly.
 _PROVIDER_KEY_ENV: dict[str, str] = {
     "anthropic": "ANTHROPIC_API_KEY",
     "openai": "OPENAI_API_KEY",

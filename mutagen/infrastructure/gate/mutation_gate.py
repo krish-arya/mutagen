@@ -36,10 +36,9 @@ from mutagen.core.exceptions import MutationGateError
 from mutagen.core.interfaces import MutationGate
 from mutagen.core.models.generated_test import GeneratedTest
 from mutagen.core.models.mutation_report import MutationReport
-from mutagen.core.models.outcome import MutationResult
+from mutagen.core.models.outcome import MutationResult, MutationVerdict
 from mutagen.core.models.repo import RepoContext
 from mutagen.core.models.target import Target
-from mutagen.infrastructure.gate.mutmut_parser import MutmutParser
 from mutagen.infrastructure.gate.survivor_feedback import SurvivorFeedbackBuilder
 from mutagen.infrastructure.process import CommandError, CommandRunner
 
@@ -73,14 +72,12 @@ class MutmutMutationGate(MutationGate):
 
     config: RunConfig
     runner: CommandRunner | None = None
-    parser: MutmutParser | None = None
 
     def __post_init__(self) -> None:
         mc = self.config.mutation
         self.runner = self.runner or CommandRunner(
             default_timeout_seconds=mc.timeout_seconds, max_retries=0
         )
-        self.parser = self.parser or MutmutParser()
 
     @property
     def _mc(self) -> MutationConfig:
@@ -100,7 +97,7 @@ class MutmutMutationGate(MutationGate):
             with tempfile.TemporaryDirectory(prefix="mutagen-gate-") as tmp:
                 workspace = Path(tmp)
                 self._provision(workspace, context, tests)
-                raw = await self._run_mutmut(workspace, target)
+                results = await self._run_mutmut(workspace, target, tests)
         except MutationGateError:
             raise
         except OSError as exc:
@@ -108,8 +105,6 @@ class MutmutMutationGate(MutationGate):
                 f"Failed to provision mutation workspace: {exc}"
             ) from exc
 
-        test_ids = tuple(t.test_id for t in tests)
-        results = self.parser.parse(raw, killing_test_ids=test_ids)
         return self._build_report(target, tests, results)
 
     # ------------------------------------------------------------------ #
@@ -136,22 +131,26 @@ class MutmutMutationGate(MutationGate):
         for test in tests:
             filename = f"test_mutagen_{test.test_id}.py"
             (tests_dir / filename).write_text(test.source, encoding="utf-8")
-        self._pin_test_discovery(repo_copy)
         return repo_copy
 
-    @staticmethod
-    def _pin_test_discovery(repo_copy: Path) -> None:
-        """Constrain pytest discovery to the generated tests only.
+    def _write_mutmut_config(self, repo_copy: Path, target: Target) -> None:
+        """Write the ``setup.cfg`` and ``pytest.ini`` driving mutmut's run.
 
-        mutmut's baseline check runs a bare ``pytest`` (no path argument), which
-        otherwise auto-discovers the *target repo's own* test suite. That suite
-        frequently fails to import (its dev/test dependencies aren't installed in
-        the ingest venv), so mutmut declares the baseline broken and skips every
-        mutant — yielding empty results. Writing a ``pytest.ini`` that pins
-        ``testpaths`` to ``_mutagen_tests`` makes the baseline run only our
-        generated tests, which we already know pass. A pre-existing ``pytest.ini``
-        is overwritten because we control this throwaway mutation workspace.
+        The runner is set in ``setup.cfg`` rather than via the ``--runner`` CLI
+        flag: on mutmut 2.5 the flag suppresses every kill. Scoping it to
+        ``_mutagen_tests`` keeps mutmut from auto-discovering the target repo's
+        own (often unimportable) suite. ``pytest.ini`` pins ``testpaths`` for the
+        same reason during the baseline pass. Any existing config is overwritten;
+        the workspace is a disposable copy.
         """
+        rel = str(target.span.path).replace("\\", "/")
+        (repo_copy / "setup.cfg").write_text(
+            "[mutmut]\n"
+            f"paths_to_mutate={rel}\n"
+            "tests_dir=_mutagen_tests\n"
+            f"runner={sys.executable} -m pytest -x _mutagen_tests\n",
+            encoding="utf-8",
+        )
         (repo_copy / "pytest.ini").write_text(
             "[pytest]\ntestpaths = _mutagen_tests\n", encoding="utf-8"
         )
@@ -160,8 +159,18 @@ class MutmutMutationGate(MutationGate):
     # Requirements: scope to target, caps, timeout, execute
     # ------------------------------------------------------------------ #
 
-    async def _run_mutmut(self, workspace: Path, target: Target) -> str:
-        """Run mutmut scoped to the target file and return its results text."""
+    async def _run_mutmut(
+        self,
+        workspace: Path,
+        target: Target,
+        tests: Sequence[GeneratedTest],
+    ) -> list[MutationResult]:
+        """Run mutmut and collect mutant ids grouped by status.
+
+        ``mutmut results`` lists only survivors, so it can't be scored directly.
+        We query ``mutmut result-ids <status>`` per status to recover the full
+        breakdown.
+        """
         repo_copy = workspace / "repo"
         target_file = repo_copy / target.span.path
         if not target_file.is_file():
@@ -169,74 +178,86 @@ class MutmutMutationGate(MutationGate):
                 f"Target file not found in workspace: {target.span.path}."
             )
 
-        run_argv = self._build_run_argv(repo_copy, target)
+        self._write_mutmut_config(repo_copy, target)
         env = self._subprocess_env()
         try:
             # `mutmut run` exits non-zero when mutants survive — that is a
             # normal outcome, not a harness failure, so don't `check`.
             await self.runner.run(
-                run_argv,
+                self._build_run_argv(),
                 cwd=repo_copy,
                 timeout_seconds=self._mc.timeout_seconds,
                 check=False,
                 env=env,
             )
-            results = await self.runner.run(
-                self._build_results_argv(),
-                cwd=repo_copy,
-                timeout_seconds=self._mc.timeout_seconds,
-                check=False,
-                env=env,
-            )
+            verdict_ids = {}
+            for status in ("killed", "survived", "timeout"):
+                out = await self.runner.run(
+                    [sys.executable, "-m", "mutmut", "result-ids", status],
+                    cwd=repo_copy,
+                    timeout_seconds=self._mc.timeout_seconds,
+                    check=False,
+                    env=env,
+                )
+                verdict_ids[status] = out.stdout.split()
         except CommandError as exc:
-            # A timeout or launch failure surfaces here.
             raise MutationGateError(f"mutmut execution failed: {exc}") from exc
-        return results.stdout
+
+        return self._results_from_ids(verdict_ids, tests)
+
+    @staticmethod
+    def _results_from_ids(
+        verdict_ids: dict[str, list[str]],
+        tests: Sequence[GeneratedTest],
+    ) -> list[MutationResult]:
+        """Build :class:`MutationResult` records from per-status id lists."""
+        killing = tuple(t.test_id for t in tests) or ("<suite>",)
+        verdict_map = {
+            "killed": MutationVerdict.KILLED,
+            "survived": MutationVerdict.SURVIVED,
+            "timeout": MutationVerdict.TIMEOUT,
+        }
+        results: list[MutationResult] = []
+        for status, ids in verdict_ids.items():
+            verdict = verdict_map[status]
+            for mutant_id in ids:
+                results.append(
+                    MutationResult(
+                        mutant_id=mutant_id,
+                        verdict=verdict,
+                        killing_test_ids=killing
+                        if verdict is MutationVerdict.KILLED
+                        else (),
+                    )
+                )
+        return results
 
     @staticmethod
     def _subprocess_env() -> Mapping[str, str]:
-        """Parent environment, forced to UTF-8 for the mutmut subprocess.
+        """Parent environment with UTF-8 forced for the mutmut subprocess.
 
-        mutmut renders its progress and results with emoji (🎉/🙁/⏰). On
-        Windows the child's default console encoding is cp1252, which raises
-        ``UnicodeEncodeError`` mid-run and yields unparseable output. Forcing
-        UTF-8 mode makes the child emit and decode text reliably on every OS.
+        mutmut prints emoji; on a cp1252 console (Windows default) that raises
+        ``UnicodeEncodeError`` mid-run. UTF-8 mode avoids it.
         """
         env = dict(os.environ)
         env["PYTHONUTF8"] = "1"
         env["PYTHONIOENCODING"] = "utf-8"
         return env
 
-    def _build_run_argv(self, repo_copy: Path, target: Target) -> list[str]:
-        """Build the `mutmut run` argv, scoped to the target file.
+    def _build_run_argv(self) -> list[str]:
+        """Build the ``mutmut run`` argv. Configuration lives in setup.cfg.
 
-        Notes on mutmut 2.5.x compatibility:
-
-        * No custom ``--runner``: it makes the baseline check skip every mutant
-          (🔇), yielding empty results. mutmut's default runner already executes
-          the tests under ``--tests-dir``, which is exactly the scoping we want.
-        * No ``--max-children``: that option does not exist in mutmut 2.5 and
-          makes the command error out immediately. The mutant cap is instead
-          enforced after parsing, in :meth:`_apply_cap`.
+        Two CLI options are deliberately omitted for mutmut 2.5: a custom
+        ``--runner`` (it skips every mutant) and ``--max-children`` (it doesn't
+        exist there). The cap is applied after parsing in :meth:`_apply_cap`.
         """
-        rel = str(target.span.path)
         return [
             sys.executable,
             "-m",
             "mutmut",
             "run",
-            "--paths-to-mutate",
-            rel,
-            "--tests-dir",
-            "_mutagen_tests",
             "--no-progress",
         ]
-
-    def _build_results_argv(self) -> list[str]:
-        """Build the argv that exports machine-readable results."""
-        # `mutmut results` prints the per-mutant listing; the parser is
-        # tolerant of JSON or text so both modern and legacy output work.
-        return [sys.executable, "-m", "mutmut", "results"]
 
     # ------------------------------------------------------------------ #
     # Requirements: score, survivors, feedback, decision

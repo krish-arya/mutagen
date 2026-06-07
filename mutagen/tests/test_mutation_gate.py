@@ -34,15 +34,19 @@ from mutagen.infrastructure.process import CommandError, CommandResult
 
 
 class FakeRunner:
-    """Scripts mutmut's `run` and `results` calls; records every invocation."""
+    """Scripts mutmut's `run` and `result-ids <status>` calls.
+
+    ``ids_by_status`` maps a mutmut status ("killed"/"survived"/"timeout") to
+    the mutant ids returned for that bucket, mirroring ``mutmut result-ids``.
+    """
 
     def __init__(
         self,
-        results_output: str = "",
+        ids_by_status: dict[str, list[str]] | None = None,
         *,
         run_error: Exception | None = None,
     ) -> None:
-        self.results_output = results_output
+        self.ids_by_status = ids_by_status or {}
         self.run_error = run_error
         self.calls: list[tuple[str, ...]] = []
 
@@ -60,7 +64,10 @@ class FakeRunner:
         self.calls.append(argv)
         if self.run_error is not None and "run" in argv:
             raise self.run_error
-        out = self.results_output if "results" in argv else ""
+        out = ""
+        if "result-ids" in argv:
+            status = argv[-1]
+            out = " ".join(self.ids_by_status.get(status, []))
         return CommandResult(
             args=argv, returncode=0, stdout=out, stderr="", duration_seconds=0.1
         )
@@ -69,7 +76,16 @@ class FakeRunner:
         return any(needle in a for argv in self.calls for a in argv)
 
 
+def _ids(*pairs: tuple[str, str]) -> dict[str, list[str]]:
+    """Group (mutant_id, status) pairs into a result-ids mapping."""
+    out: dict[str, list[str]] = {}
+    for mutant_id, status in pairs:
+        out.setdefault(status, []).append(mutant_id)
+    return out
+
+
 def _json(*pairs: tuple[str, str]) -> str:
+    """JSON results text, for the legacy MutmutParser unit tests."""
     import json
 
     return json.dumps({"mutants": [{"id": i, "status": s} for i, s in pairs]})
@@ -245,7 +261,7 @@ def test_feedback_caps_survivor_count() -> None:
 async def test_gate_keeps_when_score_meets_threshold(
     repo: RepoContext, tmp_path: Path
 ) -> None:
-    runner = FakeRunner(_json(("m1", "killed"), ("m2", "killed")))
+    runner = FakeRunner(_ids(("m1", "killed"), ("m2", "killed")))
     report = await _evaluate(repo, tmp_path, runner, score_threshold=0.8)
     assert report.kept
     assert report.mutation_score == 1.0
@@ -256,7 +272,7 @@ async def test_gate_keeps_when_score_meets_threshold(
 async def test_gate_rejects_when_score_below_threshold(
     repo: RepoContext, tmp_path: Path
 ) -> None:
-    runner = FakeRunner(_json(("m1", "killed"), ("m2", "survived")))
+    runner = FakeRunner(_ids(("m1", "killed"), ("m2", "survived")))
     report = await _evaluate(repo, tmp_path, runner, score_threshold=0.8)
     assert not report.kept
     assert report.mutation_score == 0.5
@@ -266,24 +282,24 @@ async def test_gate_rejects_when_score_below_threshold(
 
 async def test_gate_keeps_at_exact_threshold(repo: RepoContext, tmp_path: Path) -> None:
     # 1 killed of 2 scored = 0.5; threshold 0.5 => kept (>=).
-    runner = FakeRunner(_json(("m1", "killed"), ("m2", "survived")))
+    runner = FakeRunner(_ids(("m1", "killed"), ("m2", "survived")))
     report = await _evaluate(repo, tmp_path, runner, score_threshold=0.5)
     assert report.kept
 
 
-async def test_gate_scopes_mutation_to_target_file(
+async def test_gate_queries_result_ids_per_status(
     repo: RepoContext, tmp_path: Path
 ) -> None:
-    runner = FakeRunner(_json(("m1", "killed")))
+    # The gate collects killed/survived/timeout via `mutmut result-ids`, because
+    # `mutmut results` lists only survivors (which would always score 0%).
+    runner = FakeRunner(_ids(("m1", "killed")))
     await _evaluate(repo, tmp_path, runner)
-    # mutmut was invoked scoped to the target's file.
-    assert runner.ran("--paths-to-mutate")
-    assert any(
-        "mod.py" in a
+    queried = {
+        argv[-1]
         for argv in runner.calls
-        for a in argv
-        if "--paths-to-mutate" in argv
-    )
+        if "result-ids" in argv
+    }
+    assert {"killed", "survived", "timeout"} <= queried
 
 
 async def test_gate_does_not_pass_unsupported_max_children(
@@ -291,7 +307,7 @@ async def test_gate_does_not_pass_unsupported_max_children(
 ) -> None:
     # mutmut 2.5 has no --max-children option; passing it makes the command
     # error out. The mutant cap is enforced after parsing, not on the CLI.
-    runner = FakeRunner(_json(("m1", "killed")))
+    runner = FakeRunner(_ids(("m1", "killed")))
     await _evaluate(repo, tmp_path, runner, max_mutants=7)
     assert not any("--max-children" in argv for argv in runner.calls)
 
@@ -299,29 +315,34 @@ async def test_gate_does_not_pass_unsupported_max_children(
 async def test_gate_caps_parsed_results(repo: RepoContext, tmp_path: Path) -> None:
     # mutmut returns more mutants than the cap; the report is truncated.
     pairs = tuple((f"m{i}", "killed") for i in range(10))
-    runner = FakeRunner(_json(*pairs))
+    runner = FakeRunner(_ids(*pairs))
     report = await _evaluate(repo, tmp_path, runner, max_mutants=3)
     assert report.total == 3
 
 
 async def test_gate_isolates_in_copy(repo: RepoContext, tmp_path: Path) -> None:
     original = (tmp_path / "pkg" / "mod.py").read_text(encoding="utf-8")
-    runner = FakeRunner(_json(("m1", "killed")))
+    runner = FakeRunner(_ids(("m1", "killed")))
     await _evaluate(repo, tmp_path, runner)
     # The original repository file is never mutated in place.
     assert (tmp_path / "pkg" / "mod.py").read_text(encoding="utf-8") == original
 
 
-def test_provision_pins_test_discovery(repo: RepoContext, tmp_path: Path) -> None:
-    # The mutation workspace pins pytest discovery to the generated tests so
-    # mutmut's baseline never collects (and fails on) the target repo's own
-    # test suite. Without this, mutmut skips every mutant.
+def test_mutmut_config_scopes_runner_and_discovery(
+    repo: RepoContext, tmp_path: Path
+) -> None:
+    # The setup.cfg drives mutmut: a scoped runner that runs only our generated
+    # tests (so mutants are actually killed), plus discovery pinned away from the
+    # target repo's own suite. Without the scoped runner, nothing is killed.
     gate = MutmutMutationGate(config=_config(tmp_path), runner=FakeRunner())
-    # The workspace must live outside the repo root, mirroring the real run's
-    # separate TemporaryDirectory; otherwise copytree recurses into itself.
     workspace = tmp_path.parent / "mutagen-ws"
     workspace.mkdir(exist_ok=True)
     repo_copy = gate._provision(workspace, repo, [_test()])
+    gate._write_mutmut_config(repo_copy, _target())
+    cfg = (repo_copy / "setup.cfg").read_text(encoding="utf-8")
+    assert "runner=" in cfg
+    assert "_mutagen_tests" in cfg
+    assert "paths_to_mutate=pkg/mod.py" in cfg
     ini = (repo_copy / "pytest.ini").read_text(encoding="utf-8")
     assert "testpaths = _mutagen_tests" in ini
     assert (repo_copy / "_mutagen_tests" / "__init__.py").exists()
@@ -335,7 +356,7 @@ async def test_gate_empty_tests_rejected(repo: RepoContext, tmp_path: Path) -> N
 
 
 async def test_gate_no_mutants_rejected(repo: RepoContext, tmp_path: Path) -> None:
-    runner = FakeRunner("")  # mutmut produced nothing
+    runner = FakeRunner({})  # mutmut produced nothing
     report = await _evaluate(repo, tmp_path, runner, score_threshold=0.8)
     assert not report.kept
     assert report.total == 0
@@ -357,7 +378,7 @@ async def test_gate_missing_target_file_raises(tmp_path: Path) -> None:
         source_files=(Path("pkg/other.py"),),
         python_version="3.11",
     )
-    runner = FakeRunner(_json(("m1", "killed")))
+    runner = FakeRunner(_ids(("m1", "killed")))
     gate = MutmutMutationGate(config=_config(tmp_path), runner=runner)
     with pytest.raises(MutationGateError):
         await gate.evaluate(_target(), [_test()], repo)

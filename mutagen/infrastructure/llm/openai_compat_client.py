@@ -5,8 +5,6 @@ API — **OpenAI**, **OpenRouter**, and **Gemini's** OpenAI-compatible endpoint 
 differing only by ``base_url``, key, and model. The ``openai`` SDK is imported
 lazily so the rest of the LLM layer imports and tests without it installed.
 
-Production concerns handled here mirror the Anthropic adapter:
-
 * **Timeout & retries** — a per-request timeout plus an outer exponential
   backoff loop over transient failures, with structured per-attempt logging.
 * **Token & cost tracking** — usage from every response feeds the shared
