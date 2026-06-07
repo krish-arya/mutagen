@@ -19,17 +19,43 @@ format = "json"
 
 [llm]
 enabled = true
+
+# provider: "anthropic" | "openai" | "gemini" | "openrouter".
+# `api_key_env` and `base_url` default sensibly per provider (see below), so you
+# usually only need to set `provider` and `model`. Pick ONE provider block.
+
+# --- Anthropic (default) ------------------------------------------------------
 provider = "anthropic"
 model = "claude-opus-4-8"
-# Environment variable holding the API key.
-api_key_env = "ANTHROPIC_API_KEY"
-max_tokens = 4096
-# low | medium | high | xhigh | max
+# api_key_env defaults to "ANTHROPIC_API_KEY".
+# low | medium | high | xhigh | max  (Anthropic effort/thinking controls)
 effort = "high"
 adaptive_thinking = true
+
+# --- OpenAI -------------------------------------------------------------------
+# provider = "openai"
+# model = "gpt-4o"
+# api_key_env defaults to "OPENAI_API_KEY".
+# temperature = 0.2          # OpenAI-family providers accept sampling controls.
+
+# --- Google Gemini (OpenAI-compatible endpoint) -------------------------------
+# provider = "gemini"
+# model = "gemini-2.0-flash"
+# api_key_env defaults to "GEMINI_API_KEY".
+# base_url defaults to Gemini's OpenAI-compatible endpoint.
+
+# --- OpenRouter ---------------------------------------------------------------
+# provider = "openrouter"
+# model = "anthropic/claude-opus-4-8"   # any model OpenRouter routes to
+# api_key_env defaults to "OPENROUTER_API_KEY".
+# base_url defaults to "https://openrouter.ai/api/v1".
+
+# --- Common (all providers) ---------------------------------------------------
+max_tokens = 4096
 timeout_seconds = 120.0
 max_retries = 3
-# Pricing used for cost estimation (USD per million tokens).
+# Pricing used for cost estimation (USD per million tokens); set to your
+# chosen model's rates.
 input_usd_per_mtok = 5.0
 output_usd_per_mtok = 25.0
 

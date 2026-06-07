@@ -172,17 +172,35 @@ mutagen/
 Requires **Python 3.11+** and **git** (for ingesting remote repositories).
 
 ```bash
-# Clone and install with every integration (Anthropic SDK, coverage, mutmut, …)
-git clone <this-repo> && cd mutagen
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -e ".[all]"
-
-# Provide your Anthropic API key
-export ANTHROPIC_API_KEY=sk-ant-...                 # Windows: $env:ANTHROPIC_API_KEY=...
+# Install with every integration (Anthropic + OpenAI SDKs, coverage, mutmut, …)
+pip install "mutagen[all]"        # or: pipx install "mutagen[all]"
 ```
 
-Lighter installs are available via extras: `pip install -e .` (CLI + reporting
-only), then add `[llm]`, `[sandbox]`, `[mutation]`, or `[coverage]` as needed.
+Then provide an API key for whichever provider you use — via your shell or a
+`.env` file in your project (loaded automatically):
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...    # Anthropic   (Windows: $env:ANTHROPIC_API_KEY=...)
+export OPENAI_API_KEY=sk-...           # OpenAI
+export GEMINI_API_KEY=...              # Google Gemini
+export OPENROUTER_API_KEY=sk-or-...    # OpenRouter
+```
+
+```ini
+# .env (kept out of source control; never committed)
+OPENAI_API_KEY=sk-...
+```
+
+Verify everything at once:
+
+```bash
+mutagen doctor    # checks Python, git, optional deps, and which provider key is set
+```
+
+Lighter installs are available via extras: `pip install mutagen` (CLI +
+reporting only), then add `[llm]` (Anthropic), `[openai]` (OpenAI / Gemini /
+OpenRouter), `[sandbox]`, `[mutation]`, or `[coverage]` as needed. `mutagen
+doctor` tells you exactly which extra to install for anything missing.
 
 ---
 
@@ -201,6 +219,9 @@ mutagen run ./project --run-id my-run-123
 
 # Re-render the most recent run's report
 mutagen report
+
+# Diagnose the environment (Python, git, optional deps, provider key)
+mutagen doctor
 ```
 
 `mutagen run` exits **0** on success, **1** on a handled failure, and **2**

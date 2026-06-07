@@ -22,6 +22,9 @@ classifiers = [
 # install stays light; `pip install mutagen[all]` pulls in everything.
 dependencies = [
     "rich>=13.0",
+    # Tiny, dependency-free; loaded at CLI start so a `.env` works out of the
+    # box on a fresh `pip install` without an extra.
+    "python-dotenv>=1.0",
 ]
 
 [project.optional-dependencies]

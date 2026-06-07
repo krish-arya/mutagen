@@ -73,7 +73,29 @@ def build_parser() -> argparse.ArgumentParser:
         help="Run id to report; defaults to the most recent.",
     )
 
+    subparsers.add_parser(
+        "doctor",
+        help="Check the environment (Python, git, optional deps, provider key).",
+    )
+
     return parser
+
+
+def _load_dotenv() -> None:
+    """Load a ``.env`` file if ``python-dotenv`` is available.
+
+    Walks up from the current working directory to find the nearest ``.env``,
+    so it works regardless of where the package itself is installed. A missing
+    file or a missing dependency is silently ignored — env vars set in the
+    shell always take precedence and are sufficient on their own.
+    """
+    try:
+        from dotenv import find_dotenv, load_dotenv
+    except ImportError:  # pragma: no cover - optional dependency
+        return
+    path = find_dotenv(usecwd=True)
+    if path:
+        load_dotenv(path, override=False)
 
 
 async def run_cli(argv: Sequence[str] | None = None) -> int:
@@ -85,6 +107,16 @@ async def run_cli(argv: Sequence[str] | None = None) -> int:
     """
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    _load_dotenv()
+
+    # `doctor` must run before config loading so it can diagnose a broken or
+    # missing environment rather than failing the same way the user came to
+    # diagnose.
+    if args.command == "doctor":
+        from mutagen.cli.doctor import doctor
+
+        return doctor()
 
     overrides: dict[str, object] = {}
     if getattr(args, "threshold", None) is not None:
