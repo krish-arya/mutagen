@@ -3,7 +3,10 @@ requires = ["hatchling>=1.21"]
 build-backend = "hatchling.build"
 
 [project]
-name = "mutagen"
+# Distribution name on PyPI ("pip install mutagen-ai"). The import package is
+# still `mutagen` (e.g. `from mutagen import ...`); only the published name
+# differs, because the plain `mutagen` name is taken on PyPI.
+name = "mutagen-ai"
 version = "0.1.0"
 description = "Production-grade mutation testing for Python."
 readme = "README.md"
