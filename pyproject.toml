@@ -56,6 +56,11 @@ dev = [
     "ruff>=0.4",
 ]
 
+[project.urls]
+Homepage = "https://github.com/krish-arya/mutagen"
+Repository = "https://github.com/krish-arya/mutagen"
+Issues = "https://github.com/krish-arya/mutagen/issues"
+
 [project.scripts]
 mutagen = "mutagen.main:main"
 
