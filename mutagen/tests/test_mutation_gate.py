@@ -155,6 +155,21 @@ def test_parser_text_fallback() -> None:
     assert {r.mutant_id for r in results} == {"m1", "m2", "m3"}
 
 
+def test_parser_emoji_sections() -> None:
+    # Real mutmut 2.x `mutmut results` output: status-grouped with emoji,
+    # per-file sub-headers, and comma/range mutant-number lists.
+    raw = (
+        "Killed 🎉 (3)\n\n---- foo.py (3) ----\n\n1-2, 5\n\n"
+        "Survived 🙁 (1)\n\n---- bar.py (1) ----\n\n7\n"
+    )
+    results = MutmutParser().parse(raw, killing_test_ids=("t1",))
+    by_id = {r.mutant_id: r.verdict for r in results}
+    assert by_id["foo.py:1"] is MutationVerdict.KILLED
+    assert by_id["foo.py:2"] is MutationVerdict.KILLED
+    assert by_id["foo.py:5"] is MutationVerdict.KILLED
+    assert by_id["bar.py:7"] is MutationVerdict.SURVIVED
+
+
 def test_parser_empty_returns_empty() -> None:
     assert MutmutParser().parse("   ") == []
 
@@ -271,10 +286,14 @@ async def test_gate_scopes_mutation_to_target_file(
     )
 
 
-async def test_gate_passes_mutant_cap(repo: RepoContext, tmp_path: Path) -> None:
+async def test_gate_does_not_pass_unsupported_max_children(
+    repo: RepoContext, tmp_path: Path
+) -> None:
+    # mutmut 2.5 has no --max-children option; passing it makes the command
+    # error out. The mutant cap is enforced after parsing, not on the CLI.
     runner = FakeRunner(_json(("m1", "killed")))
     await _evaluate(repo, tmp_path, runner, max_mutants=7)
-    assert any("--max-children" in argv for argv in runner.calls)
+    assert not any("--max-children" in argv for argv in runner.calls)
 
 
 async def test_gate_caps_parsed_results(repo: RepoContext, tmp_path: Path) -> None:
@@ -291,6 +310,21 @@ async def test_gate_isolates_in_copy(repo: RepoContext, tmp_path: Path) -> None:
     await _evaluate(repo, tmp_path, runner)
     # The original repository file is never mutated in place.
     assert (tmp_path / "pkg" / "mod.py").read_text(encoding="utf-8") == original
+
+
+def test_provision_pins_test_discovery(repo: RepoContext, tmp_path: Path) -> None:
+    # The mutation workspace pins pytest discovery to the generated tests so
+    # mutmut's baseline never collects (and fails on) the target repo's own
+    # test suite. Without this, mutmut skips every mutant.
+    gate = MutmutMutationGate(config=_config(tmp_path), runner=FakeRunner())
+    # The workspace must live outside the repo root, mirroring the real run's
+    # separate TemporaryDirectory; otherwise copytree recurses into itself.
+    workspace = tmp_path.parent / "mutagen-ws"
+    workspace.mkdir(exist_ok=True)
+    repo_copy = gate._provision(workspace, repo, [_test()])
+    ini = (repo_copy / "pytest.ini").read_text(encoding="utf-8")
+    assert "testpaths = _mutagen_tests" in ini
+    assert (repo_copy / "_mutagen_tests" / "__init__.py").exists()
 
 
 async def test_gate_empty_tests_rejected(repo: RepoContext, tmp_path: Path) -> None:

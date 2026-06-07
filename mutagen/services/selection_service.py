@@ -23,5 +23,19 @@ class SelectionService:
     selector: TargetSelector
 
     async def select(self, context: RepoContext) -> Sequence[Target]:
-        """Select targets from ``context``, applying configured limits."""
-        raise NotImplementedError
+        """Select targets from ``context``, applying configured limits.
+
+        Delegates ranking to the :class:`TargetSelector` port, then applies the
+        run-level ``orchestrator.max_targets`` cap on top (``0`` = unlimited).
+        The selector's own ``selection.max_targets`` is a selection-policy cap;
+        this is the orchestration budget cap, so the smaller of the two wins.
+
+        Returns:
+            The selected targets, ordered by descending priority and bounded by
+            the orchestrator's target budget.
+        """
+        targets = await self.selector.select(context)
+        limit = self.config.orchestrator.max_targets
+        if limit > 0:
+            return list(targets[:limit])
+        return list(targets)

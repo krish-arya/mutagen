@@ -22,10 +22,11 @@ here; the mutmut subprocess is mocked in tests so the suite never runs it.
 
 from __future__ import annotations
 
+import os
 import shutil
 import sys
 import tempfile
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -135,7 +136,25 @@ class MutmutMutationGate(MutationGate):
         for test in tests:
             filename = f"test_mutagen_{test.test_id}.py"
             (tests_dir / filename).write_text(test.source, encoding="utf-8")
+        self._pin_test_discovery(repo_copy)
         return repo_copy
+
+    @staticmethod
+    def _pin_test_discovery(repo_copy: Path) -> None:
+        """Constrain pytest discovery to the generated tests only.
+
+        mutmut's baseline check runs a bare ``pytest`` (no path argument), which
+        otherwise auto-discovers the *target repo's own* test suite. That suite
+        frequently fails to import (its dev/test dependencies aren't installed in
+        the ingest venv), so mutmut declares the baseline broken and skips every
+        mutant — yielding empty results. Writing a ``pytest.ini`` that pins
+        ``testpaths`` to ``_mutagen_tests`` makes the baseline run only our
+        generated tests, which we already know pass. A pre-existing ``pytest.ini``
+        is overwritten because we control this throwaway mutation workspace.
+        """
+        (repo_copy / "pytest.ini").write_text(
+            "[pytest]\ntestpaths = _mutagen_tests\n", encoding="utf-8"
+        )
 
     # ------------------------------------------------------------------ #
     # Requirements: scope to target, caps, timeout, execute
@@ -151,6 +170,7 @@ class MutmutMutationGate(MutationGate):
             )
 
         run_argv = self._build_run_argv(repo_copy, target)
+        env = self._subprocess_env()
         try:
             # `mutmut run` exits non-zero when mutants survive — that is a
             # normal outcome, not a harness failure, so don't `check`.
@@ -159,22 +179,48 @@ class MutmutMutationGate(MutationGate):
                 cwd=repo_copy,
                 timeout_seconds=self._mc.timeout_seconds,
                 check=False,
+                env=env,
             )
             results = await self.runner.run(
                 self._build_results_argv(),
                 cwd=repo_copy,
                 timeout_seconds=self._mc.timeout_seconds,
                 check=False,
+                env=env,
             )
         except CommandError as exc:
             # A timeout or launch failure surfaces here.
             raise MutationGateError(f"mutmut execution failed: {exc}") from exc
         return results.stdout
 
+    @staticmethod
+    def _subprocess_env() -> Mapping[str, str]:
+        """Parent environment, forced to UTF-8 for the mutmut subprocess.
+
+        mutmut renders its progress and results with emoji (🎉/🙁/⏰). On
+        Windows the child's default console encoding is cp1252, which raises
+        ``UnicodeEncodeError`` mid-run and yields unparseable output. Forcing
+        UTF-8 mode makes the child emit and decode text reliably on every OS.
+        """
+        env = dict(os.environ)
+        env["PYTHONUTF8"] = "1"
+        env["PYTHONIOENCODING"] = "utf-8"
+        return env
+
     def _build_run_argv(self, repo_copy: Path, target: Target) -> list[str]:
-        """Build the `mutmut run` argv: scope to the target file, cap mutants."""
+        """Build the `mutmut run` argv, scoped to the target file.
+
+        Notes on mutmut 2.5.x compatibility:
+
+        * No custom ``--runner``: it makes the baseline check skip every mutant
+          (🔇), yielding empty results. mutmut's default runner already executes
+          the tests under ``--tests-dir``, which is exactly the scoping we want.
+        * No ``--max-children``: that option does not exist in mutmut 2.5 and
+          makes the command error out immediately. The mutant cap is instead
+          enforced after parsing, in :meth:`_apply_cap`.
+        """
         rel = str(target.span.path)
-        argv = [
+        return [
             sys.executable,
             "-m",
             "mutmut",
@@ -183,13 +229,8 @@ class MutmutMutationGate(MutationGate):
             rel,
             "--tests-dir",
             "_mutagen_tests",
-            "--runner",
-            f"{sys.executable} -m pytest -q -x _mutagen_tests",
             "--no-progress",
         ]
-        if self._mc.max_mutants > 0:
-            argv += ["--max-children", str(self._mc.max_mutants)]
-        return argv
 
     def _build_results_argv(self) -> list[str]:
         """Build the argv that exports machine-readable results."""

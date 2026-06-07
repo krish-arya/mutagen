@@ -37,14 +37,36 @@ _STATUS_VERDICTS: dict[str, MutationVerdict] = {
     "skipped": MutationVerdict.ERROR,
 }
 
-# Matches a line of `mutmut results` text such as:
-#   "Survived 🙁 (3)\n\n---- module.py (3) ----\n1-2, 5"
-# We instead parse the simpler per-id form mutmut also emits with --json or
-# the legacy "<id>: <status>" listing.
+# Legacy per-id form some mutmut versions emit: "<id>: <status>".
 _TEXT_LINE_RE = re.compile(
     r"^\s*(?P<id>[\w./:-]+)\s*[:=]\s*(?P<status>[a-z_]+)\s*$",
     re.IGNORECASE,
 )
+
+# mutmut 2.x `mutmut results` groups mutants under a status header, e.g.:
+#   "Survived 🙁 (1)"  /  "Timeout ⏰ (2)"  /  "Killed 🎉 (3)"
+# The leading word is the status; trailing emoji/count are ignored.
+_SECTION_HEADER_RE = re.compile(
+    r"^\s*(?P<status>killed|survived|timeout|suspicious|skipped|error|no tests)\b",
+    re.IGNORECASE,
+)
+
+# A file sub-header within a section: "---- path/to/file.py (3) ----".
+_FILE_HEADER_RE = re.compile(r"^\s*-{2,}\s*(?P<file>.+?)\s*\(\d+\)\s*-{2,}\s*$")
+
+# A line listing mutant numbers/ranges under a file header: "1-2, 5, 7".
+_ID_LIST_RE = re.compile(r"^\s*\d+(?:\s*-\s*\d+)?(?:\s*,\s*\d+(?:\s*-\s*\d+)?)*\s*$")
+
+# Map the section-header word to a status token the verdict table understands.
+_SECTION_STATUS: dict[str, str] = {
+    "killed": "killed",
+    "survived": "survived",
+    "timeout": "timeout",
+    "suspicious": "suspicious",
+    "skipped": "skipped",
+    "error": "error",
+    "no tests": "error",
+}
 
 
 class MutmutParser:
@@ -121,7 +143,71 @@ class MutmutParser:
     def _parse_text(
         self, text: str, killing_test_ids: tuple[str, ...]
     ) -> list[MutationResult]:
-        """Parse the per-id ``<id>: <status>`` listing form."""
+        """Parse mutmut's text results: emoji-section form, then legacy form."""
+        results = self._parse_sections(text, killing_test_ids)
+        if not results:
+            results = self._parse_legacy_lines(text, killing_test_ids)
+        if not results:
+            _logger.warning(
+                "mutmut output matched no known result format",
+                extra={"context": {"head": text[:200]}},
+            )
+        return results
+
+    def _parse_sections(
+        self, text: str, killing_test_ids: tuple[str, ...]
+    ) -> list[MutationResult]:
+        """Parse mutmut 2.x grouped output.
+
+        Output groups mutants under a status header, then per-file sub-headers,
+        then comma/range lists of mutant numbers::
+
+            Survived 🙁 (1)
+            ---- foo.py (1) ----
+            1-2, 5
+
+        Each number becomes one :class:`MutationResult` whose id is
+        ``<file>:<n>`` and whose verdict comes from the enclosing section.
+        """
+        results: list[MutationResult] = []
+        status: str | None = None
+        current_file = ""
+        for line in text.splitlines():
+            header = _SECTION_HEADER_RE.match(line)
+            if header:
+                status = _SECTION_STATUS.get(header.group("status").lower())
+                current_file = ""
+                continue
+            file_match = _FILE_HEADER_RE.match(line)
+            if file_match:
+                current_file = file_match.group("file")
+                continue
+            if status is None or not _ID_LIST_RE.match(line):
+                continue
+            for number in self._expand_ids(line):
+                mutant_id = f"{current_file}:{number}" if current_file else number
+                results.append(
+                    self._build(mutant_id, status, killing_test_ids, {})
+                )
+        return results
+
+    @staticmethod
+    def _expand_ids(line: str) -> list[str]:
+        """Expand a "1-2, 5" mutant-number list into ["1", "2", "5"]."""
+        ids: list[str] = []
+        for chunk in line.split(","):
+            chunk = chunk.strip()
+            if "-" in chunk:
+                lo, hi = (part.strip() for part in chunk.split("-", 1))
+                ids.extend(str(n) for n in range(int(lo), int(hi) + 1))
+            elif chunk:
+                ids.append(chunk)
+        return ids
+
+    def _parse_legacy_lines(
+        self, text: str, killing_test_ids: tuple[str, ...]
+    ) -> list[MutationResult]:
+        """Parse the legacy per-id ``<id>: <status>`` listing form."""
         results: list[MutationResult] = []
         for line in text.splitlines():
             match = _TEXT_LINE_RE.match(line)
@@ -134,11 +220,6 @@ class MutmutParser:
                     killing_test_ids,
                     {},
                 )
-            )
-        if not results:
-            _logger.warning(
-                "mutmut output matched no known result format",
-                extra={"context": {"head": text[:200]}},
             )
         return results
 
