@@ -366,6 +366,41 @@ optional tools are absent.
 
 ---
 
+## Contributing
+
+Contributions are welcome — bug fixes, features, docs, tests. The `main` branch
+is protected: **all changes land through a reviewed pull request**, and direct
+pushes are not accepted.
+
+1. **Fork** the repo and clone your fork.
+2. **Create a branch** off `main`:
+   ```bash
+   git checkout -b fix/short-description
+   ```
+3. **Set up the dev environment** and make your change:
+   ```bash
+   pip install -e ".[dev,sandbox]"
+   ```
+4. **Run the checks locally** — your PR can't merge until CI is green:
+   ```bash
+   pytest                 # full test suite
+   ruff check mutagen     # lint
+   ruff format mutagen    # format
+   mypy mutagen           # type-check (strict; aspirational)
+   ```
+5. **Commit, push to your fork, and open a pull request** against `main`.
+   Describe what changed and why; link any related issue.
+6. A maintainer reviews it. **At least one approval and passing CI are required
+   before merge** — please be patient and address review feedback by pushing
+   more commits to the same branch.
+
+Not sure where to start, or want to propose something larger first? **Open an
+issue** to discuss before investing in a big change.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the full guidelines.
+
+---
+
 ## License
 
 MIT.
