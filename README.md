@@ -211,6 +211,11 @@ doctor` tells you exactly which extra to install for anything missing.
 mutagen run ./path/to/project
 mutagen run https://github.com/org/repo
 
+# Pick a provider and model straight from the CLI — no config file needed.
+# Per-provider API-key env var and base URL are filled in automatically;
+# just set the matching key (e.g. OPENAI_API_KEY).
+mutagen run ./project --provider openai --model gpt-4o
+
 # With a config file and a score threshold
 mutagen -c mutagen.toml run ./project --threshold 0.8
 
@@ -271,7 +276,8 @@ statistics.
 
 Configuration is TOML, mirroring the config dataclass tree. See
 [`mutagen.example.toml`](mutagen.example.toml) for the fully-annotated template.
-CLI flags (`--threshold`) override file values. Highlights:
+CLI flags (`--threshold`, `--provider`, `--model`) override file values, so you
+can switch provider without touching — or even having — a config file. Highlights:
 
 ```toml
 project_root = "."
