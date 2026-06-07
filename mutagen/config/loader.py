@@ -58,7 +58,8 @@ def load_config(
     Args:
         config_path: Optional path to a TOML configuration file.
         overrides: Optional flat mapping merged on top of file values. Keys:
-            ``project_root``, ``score_threshold``, ``log_level``, ``log_file``.
+            ``project_root``, ``score_threshold``, ``log_level``, ``log_file``,
+            ``llm_provider``, ``llm_model``.
 
     Returns:
         A fully-resolved, immutable :class:`RunConfig`.
@@ -104,6 +105,14 @@ def _apply_overrides(
         logging = dict(merged.get("logging", {}))
         logging["file"] = overrides["log_file"]
         merged["logging"] = logging
+    if "llm_provider" in overrides and overrides["llm_provider"] is not None:
+        llm = dict(merged.get("llm", {}))
+        llm["provider"] = overrides["llm_provider"]
+        merged["llm"] = llm
+    if "llm_model" in overrides and overrides["llm_model"] is not None:
+        llm = dict(merged.get("llm", {}))
+        llm["model"] = overrides["llm_model"]
+        merged["llm"] = llm
     return merged
 
 

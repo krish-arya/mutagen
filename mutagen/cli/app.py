@@ -54,6 +54,18 @@ def build_parser() -> argparse.ArgumentParser:
         help="Override the minimum acceptable mutation score (0-1).",
     )
     run.add_argument(
+        "--provider",
+        choices=["anthropic", "openai", "gemini", "openrouter"],
+        default=None,
+        help="LLM provider to use (overrides config). Key env and base URL "
+        "default per provider; set the matching API key env var.",
+    )
+    run.add_argument(
+        "--model",
+        default=None,
+        help="LLM model to use (overrides config).",
+    )
+    run.add_argument(
         "--run-id",
         default=None,
         help="Run identifier; reuse to resume an interrupted run.",
@@ -121,6 +133,10 @@ async def run_cli(argv: Sequence[str] | None = None) -> int:
     overrides: dict[str, object] = {}
     if getattr(args, "threshold", None) is not None:
         overrides["score_threshold"] = args.threshold
+    if getattr(args, "provider", None) is not None:
+        overrides["llm_provider"] = args.provider
+    if getattr(args, "model", None) is not None:
+        overrides["llm_model"] = args.model
 
     try:
         config = load_config(
