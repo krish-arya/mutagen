@@ -93,7 +93,9 @@ def _config(**kwargs: Any) -> LLMConfig:
 
 
 def _completion(text: str = "result", **kwargs: Any) -> FakeCompletion:
-    return FakeCompletion(choices=[FakeChoice(message=FakeMessageObj(content=text))], **kwargs)
+    return FakeCompletion(
+        choices=[FakeChoice(message=FakeMessageObj(content=text))], **kwargs
+    )
 
 
 # --------------------------------------------------------------------------- #

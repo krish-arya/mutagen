@@ -294,11 +294,7 @@ async def test_gate_queries_result_ids_per_status(
     # `mutmut results` lists only survivors (which would always score 0%).
     runner = FakeRunner(_ids(("m1", "killed")))
     await _evaluate(repo, tmp_path, runner)
-    queried = {
-        argv[-1]
-        for argv in runner.calls
-        if "result-ids" in argv
-    }
+    queried = {argv[-1] for argv in runner.calls if "result-ids" in argv}
     assert {"killed", "survived", "timeout"} <= queried
 
 

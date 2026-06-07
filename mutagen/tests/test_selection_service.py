@@ -8,7 +8,6 @@ priority-ordered list so the cap logic is tested in isolation.
 from __future__ import annotations
 
 from collections.abc import Sequence
-from dataclasses import replace
 from pathlib import Path
 
 import pytest
@@ -54,7 +53,9 @@ def context() -> RepoContext:
 
 
 async def test_applies_orchestrator_cap(context: RepoContext) -> None:
-    service = SelectionService(_config(max_targets=2), _FakeSelector([_target(i) for i in range(5)]))
+    service = SelectionService(
+        _config(max_targets=2), _FakeSelector([_target(i) for i in range(5)])
+    )
     result = await service.select(context)
     assert [t.target_id for t in result] == ["t0", "t1"]
 

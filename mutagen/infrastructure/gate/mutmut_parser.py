@@ -186,9 +186,7 @@ class MutmutParser:
                 continue
             for number in self._expand_ids(line):
                 mutant_id = f"{current_file}:{number}" if current_file else number
-                results.append(
-                    self._build(mutant_id, status, killing_test_ids, {})
-                )
+                results.append(self._build(mutant_id, status, killing_test_ids, {}))
         return results
 
     @staticmethod
