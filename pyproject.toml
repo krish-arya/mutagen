@@ -12,7 +12,7 @@ description = "Production-grade mutation testing for Python."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "MIT" }
-authors = [{ name = "Mutagen Authors" }]
+authors = [{ name = "Krish Arya", email = "krisharya2k5@gmail.com" }]
 keywords = ["mutation-testing", "testing", "quality"]
 classifiers = [
     "Development Status :: 3 - Alpha",
