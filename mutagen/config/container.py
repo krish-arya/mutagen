@@ -58,10 +58,30 @@ class Container:
     # ------------------------------------------------------------------ #
 
     def provide_llm_client(self) -> LLMClient:
-        """Resolve the configured :class:`LLMClient`."""
-        from mutagen.infrastructure.llm import AnthropicLLMClient
+        """Resolve the configured :class:`LLMClient` for the active provider.
 
-        return self._memo("llm", lambda: AnthropicLLMClient(self.config.llm))  # type: ignore[return-value]
+        ``anthropic`` uses the native Anthropic adapter; ``openai``, ``gemini``,
+        and ``openrouter`` share the OpenAI-compatible adapter, which reads its
+        API key from the environment variable named by ``config.llm.api_key_env``.
+        """
+        import os
+
+        from mutagen.infrastructure.llm import (
+            AnthropicLLMClient,
+            OpenAICompatLLMClient,
+        )
+
+        def build() -> LLMClient:
+            llm = self.config.llm
+            if llm.provider == "anthropic":
+                return AnthropicLLMClient(llm)
+            if llm.provider in ("openai", "gemini", "openrouter"):
+                return OpenAICompatLLMClient(
+                    llm, api_key=os.environ.get(llm.api_key_env)
+                )
+            raise ValueError(f"Unknown LLM provider: {llm.provider!r}")
+
+        return self._memo("llm", build)  # type: ignore[return-value]
 
     def provide_ingestor(self) -> RepoIngestor:
         """Resolve the configured :class:`RepoIngestor`."""

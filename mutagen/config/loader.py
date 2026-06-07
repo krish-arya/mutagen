@@ -133,13 +133,38 @@ def _logging(table: dict[str, Any]) -> LoggingConfig:
     )
 
 
+# Per-provider conventional defaults, applied when the config doesn't override
+# them. Keeps the common case ("provider = 'openrouter'") zero-config.
+_PROVIDER_KEY_ENV: dict[str, str] = {
+    "anthropic": "ANTHROPIC_API_KEY",
+    "openai": "OPENAI_API_KEY",
+    "gemini": "GEMINI_API_KEY",
+    "openrouter": "OPENROUTER_API_KEY",
+}
+_PROVIDER_BASE_URL: dict[str, str] = {
+    "openrouter": "https://openrouter.ai/api/v1",
+    "gemini": "https://generativelanguage.googleapis.com/v1beta/openai/",
+}
+
+
 def _llm(table: dict[str, Any]) -> LLMConfig:
     base = LLMConfig()
+    provider = str(table.get("provider", base.provider)).lower()
+    # Resolve the key env: explicit config wins; otherwise the provider default.
+    api_key_env = str(
+        table.get("api_key_env", _PROVIDER_KEY_ENV.get(provider, base.api_key_env))
+    )
+    # Resolve base_url: explicit config wins; else provider default; else None
+    # (the SDK's own default endpoint).
+    base_url = table.get("base_url", _PROVIDER_BASE_URL.get(provider))
+    temperature = table.get("temperature")
     return LLMConfig(
         enabled=bool(table.get("enabled", base.enabled)),
-        provider=str(table.get("provider", base.provider)),
+        provider=provider,
         model=str(table.get("model", base.model)),
-        api_key_env=str(table.get("api_key_env", base.api_key_env)),
+        api_key_env=api_key_env,
+        base_url=str(base_url) if base_url is not None else None,
+        temperature=float(temperature) if temperature is not None else None,
         max_tokens=int(table.get("max_tokens", base.max_tokens)),
         effort=Effort(str(table.get("effort", base.effort.value)).lower()),
         adaptive_thinking=bool(table.get("adaptive_thinking", base.adaptive_thinking)),

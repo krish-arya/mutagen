@@ -16,6 +16,7 @@ Components:
 
 from mutagen.infrastructure.llm.anthropic_client import AnthropicLLMClient
 from mutagen.infrastructure.llm.cost_tracker import CostTracker, TokenUsage
+from mutagen.infrastructure.llm.openai_compat_client import OpenAICompatLLMClient
 from mutagen.infrastructure.llm.prompt_builder import (
     GenerationRequest,
     Prompt,
@@ -30,6 +31,7 @@ from mutagen.infrastructure.llm.response_parser import (
 
 __all__ = [
     "AnthropicLLMClient",
+    "OpenAICompatLLMClient",
     "PromptBuilder",
     "Prompt",
     "GenerationRequest",

@@ -61,12 +61,22 @@ class LLMConfig:
 
     Attributes:
         enabled: Whether LLM-assisted generation is active.
-        provider: Provider name; only ``"anthropic"`` is supported today.
+        provider: Provider name: ``"anthropic"``, ``"openai"``, ``"gemini"``,
+            or ``"openrouter"``. The latter three share one OpenAI-compatible
+            adapter, varying only base URL, key, and model.
         model: Model identifier (e.g. ``"claude-opus-4-8"``).
-        api_key_env: Environment variable holding the API key.
+        api_key_env: Environment variable holding the API key. When left as the
+            default, the loader substitutes the provider's conventional variable
+            (e.g. ``OPENROUTER_API_KEY`` for OpenRouter).
+        base_url: Override for the API base URL. ``None`` means use the
+            provider's default endpoint (the SDK default for OpenAI/Anthropic,
+            OpenRouter's/Gemini's documented endpoint otherwise).
+        temperature: Optional sampling temperature for OpenAI-family providers.
+            ``None`` sends no temperature. Ignored by the Anthropic adapter,
+            whose target models reject sampling parameters.
         max_tokens: Hard cap on output tokens per request.
-        effort: Thinking/effort level for requests.
-        adaptive_thinking: Whether to enable adaptive thinking.
+        effort: Thinking/effort level for requests (Anthropic only).
+        adaptive_thinking: Whether to enable adaptive thinking (Anthropic only).
         timeout_seconds: Per-request timeout passed to the SDK.
         max_retries: Additional retry attempts for transient API failures
             (rate limits, 5xx), on top of the SDK's own retry handling.
@@ -81,6 +91,8 @@ class LLMConfig:
     provider: str = "anthropic"
     model: str = "claude-opus-4-8"
     api_key_env: str = "ANTHROPIC_API_KEY"
+    base_url: str | None = None
+    temperature: float | None = None
     max_tokens: int = 4096
     effort: Effort = Effort.HIGH
     adaptive_thinking: bool = True
