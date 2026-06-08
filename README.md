@@ -31,6 +31,30 @@ For each selected target the pipeline:
 4. **Keeps or discards** the tests based on the mutation-score threshold, and
    persists the outcome **immediately** so an interrupted run resumes cleanly.
 
+### What does "kill mutants" mean?
+Mutation testing intentionally introduces small defects (mutants) into the
+target code and checks whether the generated test can detect them.
+
+For example, given the function:
+
+```py
+def add(a, b):
+      return a + b
+```
+Mutagen may create a mutant by changing the implementation to:
+
+```py
+def add(a, b):
+      return a - b
+```
+If the generated test fails when run against the mutant, the mutant is
+considered **killed**, meaning the test successfully detected the defect.
+
+If the test still passes, the mutant **survives**, indicating the test is too
+weak to catch that bug.
+
+Mutagen keeps tests that kill enough mutants and discards those that do not.
+
 ### Context enrichment (optional)
 
 Generation step 1 can fold in two extra signals — both **off by default**, both
